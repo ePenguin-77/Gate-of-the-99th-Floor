@@ -1,0 +1,68 @@
+import type { CharacterClass } from "../types/game";
+
+export const classes: CharacterClass[] = [
+  {
+    id: "fighter",
+    name: "นักสู้",
+    description: "ผู้หลงทางที่มีพื้นฐานการต่อสู้สมดุล ใช้อาวุธประชิดได้ดี เหมาะกับการเอาตัวรอดในช่วงต้น",
+    statModifiers: { strength: 3, endurance: 2, willpower: 1 },
+    preferredPlaystyle: "เหมาะกับการปะทะตรงหน้าและการฝ่าบททดสอบที่ต้องใช้ความอดทน",
+    passiveEffect: "ลดผลกระทบจากบาดแผลเล็กน้อยครั้งแรกในชั้นต่อสู้",
+  },
+  {
+    id: "guard",
+    name: "ผู้พิทักษ์",
+    description: "ผู้ที่ถนัดการป้องกัน อดทนต่อบาดแผลและแรงกดดัน เหมาะกับการฝ่าชั้นที่อันตราย",
+    statModifiers: { endurance: 3, focus: 1, willpower: 2 },
+    preferredPlaystyle: "เหมาะกับการตั้งรับ การเอาตัวรอด และการคุมความเสี่ยง",
+    passiveEffect: "ผลเสียจากความเหนื่อยล้าลดลงเล็กน้อยเมื่อผ่านชั้นแบบบอบช้ำ",
+  },
+  {
+    id: "scout",
+    name: "นักสำรวจ",
+    description: "ผู้มีความคล่องตัวสูง อ่านเส้นทางเก่ง และมีโอกาสพบทรัพยากรหรือทางเลือกพิเศษมากขึ้น",
+    statModifiers: { agility: 3, instinct: 2, focus: 1 },
+    preferredPlaystyle: "เหมาะกับการหลีกเลี่ยงอันตรายและอ่านสภาพพื้นที่",
+    passiveEffect: "ได้รับโบนัสเล็กน้อยเมื่อกลับไปยังชั้นที่เคยผ่านแล้ว",
+  },
+  {
+    id: "hunter",
+    name: "นักล่า",
+    description: "ผู้เชี่ยวชาญการโจมตีจากระยะไกล วางกับดัก และเอาตัวรอดจากพื้นที่อันตราย",
+    statModifiers: { instinct: 3, agility: 1, strength: 1, endurance: 1 },
+    preferredPlaystyle: "เหมาะกับการหาเสบียง การซุ่มโจมตี และเหตุการณ์เอาตัวรอด",
+    passiveEffect: "มีโอกาสได้อาหารเพิ่มเมื่อผ่านชั้นสำเร็จ",
+  },
+  {
+    id: "acolyte",
+    name: "ผู้ศรัทธา",
+    description: "ผู้ที่เชื่อมโยงกับพลังของเทพได้ง่าย ฟื้นฟูขวัญกำลังใจและรับพรได้มีประสิทธิภาพ",
+    statModifiers: { willpower: 3, focus: 1, instinct: 1 },
+    preferredPlaystyle: "เหมาะกับการตัดสินใจด้วยศรัทธาและการฟื้นฟูจิตใจ",
+    passiveEffect: "พรแห่งเทพฟื้นฟูความหวังได้มากขึ้น",
+  },
+  {
+    id: "scholar",
+    name: "นักปราชญ์",
+    description: "ผู้ใช้ความรู้และสมาธิในการแก้ปัญหา เหมาะกับชั้นที่เต็มไปด้วยปริศนาและกลไก",
+    statModifiers: { focus: 3, willpower: 1, instinct: 1 },
+    preferredPlaystyle: "เหมาะกับปริศนา ตำนาน และการตัดสินใจอย่างรอบคอบ",
+    passiveEffect: "ผลเสียจากการผ่านชั้นปริศนาแบบบอบช้ำลดลง",
+  },
+  {
+    id: "tinker",
+    name: "ช่างประดิษฐ์",
+    description: "ผู้ใช้สิ่งของและทรัพยากรได้คุ้มค่า ซ่อมแซม ดัดแปลง และสร้างทางรอดจากของเล็กน้อย",
+    statModifiers: { focus: 2, agility: 1, endurance: 1, instinct: 1 },
+    preferredPlaystyle: "เหมาะกับการดัดแปลงของ ซ่อมแซม และแปลงทรัพยากรให้เป็นทางรอด",
+    passiveEffect: "การออกหาเสบียงอาจได้ทองเพิ่มจากเศษของที่ซ่อมขายได้",
+  },
+  {
+    id: "rogue",
+    name: "เงาเร้น",
+    description: "ผู้ถนัดการหลบเลี่ยง ลอบเร้น และเอาตัวรอดจากสถานการณ์ที่ไม่ควรปะทะตรงๆ",
+    statModifiers: { agility: 3, instinct: 2, focus: 1 },
+    preferredPlaystyle: "เหมาะกับการลอบเร้น ฉวยโอกาส และเลือกทางที่เสี่ยงแต่คุ้มค่า",
+    passiveEffect: "เมื่อล้มเหลวจะเสียทองน้อยลง แต่ศรัทธาเติบโตช้ากว่า",
+  },
+];
