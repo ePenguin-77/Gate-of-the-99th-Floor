@@ -47,7 +47,7 @@ export function applyHubEventChoice(state: GameState, prompt: HubEventPrompt, ch
   if (prompt.eventId === "rumor-broker-offer") {
     if (choiceId === "pay" && character.gold >= 4) {
       character.gold -= 4;
-      nextState.floorIntel = { id: crypto.randomUUID(), floorNumber: Math.min(10, character.maxFloorCleared + 1), titleTh: "ข่าวจากคนขายข่าว", descriptionTh: "ข่าวนี้อาจช่วยให้เห็นอันตรายก่อนก้าวพลาด", reliability: "partial", successBonus: 5, injuryRiskReduction: 3, revealedTags: [], isFalse: false, expiresAfterNextTower: true };
+      nextState.floorIntel = { id: crypto.randomUUID(), floorNumber: Math.min(20, character.maxFloorCleared + 1), titleTh: "ข่าวจากคนขายข่าว", descriptionTh: "ข่าวนี้อาจช่วยให้เห็นอันตรายก่อนก้าวพลาด", reliability: "partial", successBonus: 5, injuryRiskReduction: 3, revealedTags: [], isFalse: false, expiresAfterNextTower: true };
       adjustNpc(2);
       narrative = "คนขายข่าวรับทองไปแล้วบอกเพียงประโยคสั้นๆ แต่มันหนักพอให้จำ";
     } else if (choiceId === "omen") {

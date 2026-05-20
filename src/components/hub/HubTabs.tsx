@@ -25,6 +25,7 @@ export function HubTabs({ activeTab, onChange }: HubTabsProps) {
             <button
               key={tab.id}
               type="button"
+              data-audio-id="ui_tab"
               onClick={() => onChange(tab.id)}
               className={`relative min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold transition ${
                 active ? "bg-ember-300/15 text-ember-100" : "text-stone-400 hover:bg-white/[0.06] hover:text-stone-100"

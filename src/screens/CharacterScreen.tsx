@@ -45,10 +45,15 @@ export function CharacterScreen({ character, onBack }: Props) {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-5 py-8">
-      <header className="mb-5 border-b border-white/10 pb-5">
-        <p className="text-sm font-medium tracking-wide text-ember-300">ข้อมูลตัวละคร</p>
-        <h1 className="mt-1 font-serif text-5xl text-stone-100">{character.name}</h1>
-        <p className="mt-2 text-lg text-stone-400">{character.className}</p>
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5">
+        <div>
+          <p className="text-sm font-medium tracking-wide text-ember-300">ข้อมูลตัวละคร</p>
+          <h1 className="mt-1 font-serif text-5xl text-stone-100">{character.name}</h1>
+          <p className="mt-2 text-lg text-stone-400">{character.className}</p>
+        </div>
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft size={16} /> กลับเมืองพักพิง
+        </Button>
       </header>
 
       <div className="grid gap-5">
@@ -244,11 +249,6 @@ export function CharacterScreen({ character, onBack }: Props) {
           </div>
         </Panel>
 
-        <div className="flex justify-end">
-          <Button variant="ghost" onClick={onBack}>
-            <ArrowLeft size={16} /> กลับเมืองพักพิง
-          </Button>
-        </div>
       </div>
     </main>
   );

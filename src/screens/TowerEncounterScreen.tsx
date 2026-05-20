@@ -10,6 +10,7 @@ import { getFloorMemoryTags } from "../game/memorySystem";
 import { createEncounterState, describeDecision, getCharacterIntent, getDecisionChoices, getFloorMidpoint } from "../game/towerEncounter";
 import { getClassActionModifier, getClassIdentity } from "../game/classIdentity";
 import { getUsableItemsForContext } from "../game/inventorySystem";
+import { getAct2SpecialHooks, type Act2SpecialOption } from "../game/act2Hooks";
 import type {
   Character,
   DifficultyMode,
@@ -18,6 +19,7 @@ import type {
   EncounterMidpointOutcome,
   FloorDefinition,
   FloorIntel,
+  NPC,
   PreparationBuff,
 } from "../types/game";
 
@@ -30,6 +32,8 @@ interface Props {
   difficultyMode: DifficultyMode;
   divineStrain?: number;
   towerPressure: number;
+  npcs?: NPC[];
+  lifeDebtMarks?: number;
   onResolve: (action: DivineActionId, decision: EncounterDecisionId, midpoint: EncounterMidpointOutcome) => void;
   onRetreat: (action: DivineActionId, midpoint: EncounterMidpointOutcome) => void;
   onReturn: () => void;
@@ -51,6 +55,8 @@ export function TowerEncounterScreen({
   difficultyMode,
   divineStrain = 0,
   towerPressure,
+  npcs = [],
+  lifeDebtMarks = 0,
   onResolve,
   onRetreat,
   onReturn,
@@ -66,6 +72,8 @@ export function TowerEncounterScreen({
   const choices = getDecisionChoices(character, Boolean(floorIntel?.floorNumber === floor.floor), Boolean(preparationBuff), usableTowerItems.length > 0);
   const classIdentity = getClassIdentity(character.classId);
   const classActionModifier = getClassActionModifier(character, floor);
+  const specialHooks = getAct2SpecialHooks({ character, floor, npcs, lifeDebtMarks, towerPressure });
+  const availableSpecialOptions = specialHooks.specialOptions.filter((option) => option.available);
 
   function advanceFromDivine() {
     const outcome = getFloorMidpoint(floor, character, selected, towerPressure);
@@ -92,6 +100,27 @@ export function TowerEncounterScreen({
       return;
     }
     onResolve(selected, decision, finalMidpoint);
+  }
+
+  function chooseSpecialOption(option: Act2SpecialOption) {
+    const currentMidpoint = midpoint ?? getFloorMidpoint(floor, character, selected, towerPressure);
+    const finalMidpoint: EncounterMidpointOutcome = {
+      ...currentMidpoint,
+      id: `${currentMidpoint.id}-${option.id}`,
+      narrative: `${currentMidpoint.narrative}\n\n${option.descriptionTh}`,
+      modifier: {
+        successBonus: currentMidpoint.modifier.successBonus + option.modifier.successBonus,
+        injuryRiskModifier: currentMidpoint.modifier.injuryRiskModifier + option.modifier.injuryRiskModifier,
+        moraleModifier: currentMidpoint.modifier.moraleModifier + option.modifier.moraleModifier,
+        fatigueModifier: currentMidpoint.modifier.fatigueModifier + option.modifier.fatigueModifier,
+      },
+      tags: [...currentMidpoint.tags, `reason:${option.resultExplanationLineTh}`],
+    };
+    if (option.resolveKey === "retreat") {
+      onRetreat(selected, finalMidpoint);
+      return;
+    }
+    onResolve(selected, option.resolveKey, finalMidpoint);
   }
 
   return (
@@ -240,6 +269,25 @@ export function TowerEncounterScreen({
             </p>
           </Panel>
           <div className="grid gap-3">
+            {availableSpecialOptions.length > 0 ? (
+              <div className="rounded-2xl border border-ember-300/25 bg-ember-300/10 p-4">
+                <p className="text-sm font-semibold text-ember-100">ทางเลือกพิเศษ</p>
+                <div className="mt-3 grid gap-3">
+                  {availableSpecialOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => chooseSpecialOption(option)}
+                      className="rounded-xl border border-ember-300/25 bg-black/30 p-4 text-left transition hover:border-ember-200/70 hover:bg-ember-300/15"
+                    >
+                      <h3 className="font-serif text-2xl text-stone-100">{option.labelTh}</h3>
+                      <p className="mt-1 text-sm leading-7 text-stone-300">{option.descriptionTh}</p>
+                      <p className="mt-2 text-xs leading-6 text-ember-200/80">{option.effectPreviewTh}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {choices
               .filter((choice) => choice.enabled)
               .map((choice) => (

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -51,6 +51,43 @@ li {
   background: rgba(216, 139, 69, 0.42);
 }
 
+.game-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.game-background::before,
+.game-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.game-background::before {
+  background-image: var(--game-background-image, none);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.84;
+  filter: saturate(1.08) contrast(1.08) brightness(1.12);
+  transform: scale(1.012);
+}
+
+.game-background::after {
+  background:
+    radial-gradient(circle at 50% 32%, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.52) 74%),
+    linear-gradient(to bottom, rgba(5, 5, 8, 0.28), rgba(5, 5, 8, 0.78));
+}
+
+.game-content-layer {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
 .start-screen {
   min-height: 100vh;
   width: 100%;
@@ -67,10 +104,14 @@ li {
   align-items: center;
   padding: clamp(1.25rem, 4vw, 4.5rem);
   background:
+    var(--title-gate-bg, none),
     radial-gradient(circle at 58% 76%, rgba(241, 139, 51, 0.42), transparent 0 10rem, rgba(241, 139, 51, 0.08) 18rem, transparent 30rem),
     radial-gradient(circle at 74% 16%, rgba(79, 95, 130, 0.28), transparent 27rem),
     linear-gradient(115deg, rgba(8, 8, 11, 0.94) 0%, rgba(18, 20, 28, 0.9) 42%, rgba(9, 8, 11, 0.98) 100%),
     #08080b;
+  background-size: cover, auto, auto, auto;
+  background-position: center, 58% 76%, 74% 16%, center;
+  background-repeat: no-repeat;
 }
 
 .title-hero::before {
@@ -103,56 +144,95 @@ li {
   inset: 0;
   z-index: -2;
   background:
-    linear-gradient(90deg, rgba(8, 8, 11, 0.92) 0%, rgba(8, 8, 11, 0.68) 42%, rgba(8, 8, 11, 0.28) 70%, rgba(8, 8, 11, 0.76) 100%),
-    radial-gradient(circle at center, transparent 28%, rgba(0, 0, 0, 0.68) 100%);
+    linear-gradient(90deg, rgba(8, 8, 11, 0.94) 0%, rgba(8, 8, 11, 0.72) 38%, rgba(8, 8, 11, 0.34) 68%, rgba(8, 8, 11, 0.8) 100%),
+    linear-gradient(180deg, rgba(8, 8, 11, 0.36), rgba(8, 8, 11, 0.76) 82%, rgba(8, 8, 11, 0.94)),
+    radial-gradient(circle at center, transparent 26%, rgba(0, 0, 0, 0.74) 100%);
 }
 
-.tower-silhouette {
-  position: absolute;
-  right: clamp(2rem, 10vw, 11rem);
-  bottom: 8%;
-  z-index: -3;
-  width: clamp(11rem, 22vw, 22rem);
-  height: min(78vh, 48rem);
-  opacity: 0.9;
-  filter: drop-shadow(0 0 70px rgba(238, 134, 54, 0.18));
+.hub-screen {
+  position: relative;
+  isolation: isolate;
 }
 
-.tower-spire,
-.tower-body,
-.tower-gate {
+.hub-screen > header {
+  z-index: 30;
+}
+
+.hub-logo {
+  position: relative;
+  padding: 0.08rem 0 0.08rem 0.1rem;
+}
+
+.hub-logo::before {
+  content: "";
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: -0.55rem -1rem -0.45rem -0.65rem;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle at 16% 48%, rgba(217, 140, 58, 0.14), transparent 68%);
+  filter: blur(8px);
+}
+
+.hub-logo-title {
+  margin: 0;
+  width: fit-content;
+  max-width: 100%;
+  color: #f5efe5;
+  font-family: "Cinzel", "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  font-size: clamp(1rem, 1.7vw, 1.42rem);
+  font-weight: 700;
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    0 7px 18px rgba(0, 0, 0, 0.72),
+    0 0 14px rgba(217, 140, 58, 0.16);
+}
+
+.hub-logo-title > span {
   display: block;
+  width: fit-content;
+  max-width: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  background: linear-gradient(180deg, #fff7ea 0%, #f2dfc3 48%, #bcb1a4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.tower-spire {
-  top: 0;
-  width: 38%;
-  height: 20%;
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  background: linear-gradient(180deg, rgba(33, 36, 48, 0.9), rgba(8, 8, 11, 0.98));
+.hub-logo-title > span + span {
+  margin-top: 0.06em;
 }
 
-.tower-body {
-  top: 16%;
-  width: 58%;
-  height: 84%;
-  background:
-    linear-gradient(90deg, transparent 0 12%, rgba(255, 255, 255, 0.035) 12% 14%, transparent 14% 86%, rgba(255, 255, 255, 0.03) 86% 88%, transparent 88%),
-    linear-gradient(180deg, rgba(31, 33, 43, 0.96), rgba(9, 8, 11, 1));
-  clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%);
-  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.8);
+.hub-logo-ordinal {
+  display: inline-block;
+  width: auto;
+  font-size: 0.48em;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  margin-left: 0.04em;
+  margin-right: 0.08em;
+  position: relative;
+  top: -0.4em;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #fff7ea 0%, #f2dfc3 48%, #bcb1a4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.tower-gate {
-  bottom: 0;
-  width: 32%;
-  height: 13%;
-  border-radius: 999px 999px 0 0;
-  background: radial-gradient(ellipse at bottom, rgba(255, 185, 94, 0.96), rgba(211, 91, 29, 0.58) 46%, rgba(9, 8, 11, 0.2) 72%);
-  box-shadow: 0 0 70px rgba(239, 139, 51, 0.68), 0 0 18px rgba(255, 229, 172, 0.55) inset;
+.hub-logo-subtitle {
+  width: fit-content;
+  margin: 0.28rem 0 0;
+  color: #f0a24c;
+  font-family: "Noto Serif Thai", "Noto Sans Thai", "Sarabun", system-ui, sans-serif;
+  font-size: clamp(0.66rem, 1vw, 0.78rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 14px rgba(240, 162, 76, 0.24), 0 4px 12px rgba(0, 0, 0, 0.65);
 }
 
 .title-fog {
@@ -195,44 +275,125 @@ li {
   padding-block: clamp(2rem, 8vh, 7rem);
 }
 
-.title-kicker {
-  width: fit-content;
-  margin: 0 0 1.4rem;
-  color: #f2b670;
-  font-size: clamp(0.78rem, 1.4vw, 0.95rem);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: none;
+.title-logo-block {
+  position: relative;
+  isolation: isolate;
+  max-width: min(920px, 100%);
+  padding: clamp(1.35rem, 4vw, 3rem) clamp(1rem, 3.5vw, 2.35rem);
 }
 
-.title-main {
-  max-width: 980px;
+.title-logo-block::before {
+  content: "";
+  position: absolute;
+  inset: -1.75rem -2.5rem;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 48%, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.14) 68%, transparent 78%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.08) 72%, transparent);
+  filter: blur(10px);
+}
+
+.title-kicker {
+  width: fit-content;
+  margin: 0 0 0.95rem;
+  color: rgba(217, 140, 58, 0.96);
+  font-size: clamp(0.74rem, 1.15vw, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: none;
+  text-shadow: 0 0 18px rgba(217, 140, 58, 0.35), 0 8px 24px rgba(0, 0, 0, 0.72);
+}
+
+.game-title {
+  max-width: 100%;
   margin: 0;
-  color: #fff8ef;
-  font-family: Georgia, "Noto Sans Thai", serif;
-  font-size: clamp(2.8rem, 8vw, 6.5rem);
-  line-height: 0.95;
-  letter-spacing: -0.04em;
-  text-wrap: balance;
+  color: #f5efe5;
+  font-family: "Cinzel", "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  font-size: clamp(3.45rem, 6.8vw, 7.15rem);
+  font-weight: 700;
+  line-height: 0.88;
+  letter-spacing: -0.052em;
   overflow-wrap: normal;
   word-break: keep-all;
   line-break: auto;
-  text-shadow: 0 6px 34px rgba(0, 0, 0, 0.72), 0 0 34px rgba(246, 178, 107, 0.14);
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.48),
+    0 12px 34px rgba(0, 0, 0, 0.78),
+    0 0 24px rgba(217, 140, 58, 0.18);
+}
+
+.game-title > span {
+  display: block;
+  width: fit-content;
+  max-width: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  background: linear-gradient(180deg, #fff7ea 0%, #f2dfc3 45%, #bcb1a4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.game-title .ordinal-suffix {
+  display: inline-block;
+  width: auto;
+  font-size: 0.46em;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  margin-left: 0.04em;
+  margin-right: 0.08em;
+  position: relative;
+  top: -0.42em;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #fff7ea 0%, #f2dfc3 45%, #bcb1a4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.game-title > span + span {
+  margin-top: 0.06em;
+}
+
+.title-divider {
+  position: relative;
+  width: min(360px, 70vw);
+  height: 1px;
+  margin: clamp(1rem, 2vw, 1.25rem) 0 0.85rem;
+  background: linear-gradient(90deg, rgba(217, 140, 58, 0.92), rgba(217, 140, 58, 0.28), transparent);
+  box-shadow: 0 0 18px rgba(217, 140, 58, 0.18);
+}
+
+.title-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: #d98c3a;
+  box-shadow: 0 0 18px rgba(217, 140, 58, 0.55);
 }
 
 .title-subtitle {
-  margin: 1rem 0 0;
-  color: #f6b26b;
-  font-family: "Noto Sans Thai", "Sarabun", system-ui, sans-serif;
-  font-size: clamp(1.8rem, 4vw, 3.5rem);
+  margin: 0;
+  color: #f0a24c;
+  font-family: "Noto Serif Thai", "Noto Sans Thai", "Sarabun", system-ui, sans-serif;
+  font-size: clamp(1.7rem, 3.4vw, 3rem);
   font-weight: 700;
-  line-height: 1.1;
-  text-shadow: 0 0 24px rgba(216, 139, 69, 0.28);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  text-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.65),
+    0 0 20px rgba(240, 162, 76, 0.22);
 }
 
 .title-description {
   max-width: 44rem;
-  margin: clamp(1.25rem, 3vw, 2rem) 0 0;
+  margin: clamp(1rem, 2.5vw, 1.55rem) clamp(1rem, 3.5vw, 2.35rem) 0;
   color: rgba(231, 225, 216, 0.86);
   font-size: clamp(1rem, 1.45vw, 1.18rem);
   line-height: 1.9;
@@ -357,23 +518,35 @@ li {
     padding-bottom: 0;
   }
 
-  .title-main {
-    max-width: 11ch;
-    font-size: clamp(2.8rem, 14vw, 4.5rem);
+  .title-logo-block {
+    padding: 1rem 0.85rem;
+  }
+
+  .title-logo-block::before {
+    inset: -1rem -1.2rem;
+  }
+
+  .game-title {
+    font-size: clamp(2.25rem, 11.4vw, 4.2rem);
+    letter-spacing: -0.045em;
+  }
+
+  .title-divider {
+    width: min(310px, 76vw);
+  }
+
+  .title-subtitle {
+    font-size: clamp(1.45rem, 7vw, 2.4rem);
+  }
+
+  .title-description {
+    margin-inline: 0.85rem;
   }
 
   .title-description br {
     display: none;
   }
 
-  .tower-silhouette {
-    right: 50%;
-    bottom: 18%;
-    width: 16rem;
-    height: 58vh;
-    opacity: 0.48;
-    transform: translateX(50%);
-  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -393,4 +566,87 @@ li {
   to {
     transform: translateX(1.5rem) scaleX(1.16);
   }
+}
+
+.floor20-finale {
+  position: relative;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(217, 140, 58, 0.2), transparent 34rem),
+    radial-gradient(circle at 78% 28%, rgba(104, 73, 38, 0.22), transparent 26rem),
+    linear-gradient(180deg, #060506 0%, #121016 48%, #050505 100%);
+}
+
+.floor20-finale::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0 12%, rgba(255, 214, 150, 0.035) 12.3% 12.5%, transparent 12.8% 100%),
+    repeating-linear-gradient(90deg, transparent 0 7.8rem, rgba(255, 255, 255, 0.025) 7.85rem 7.9rem, transparent 8rem),
+    radial-gradient(ellipse at center, transparent 36%, rgba(0, 0, 0, 0.74) 100%);
+  opacity: 0.92;
+}
+
+.floor20-ambient {
+  position: fixed;
+  left: 50%;
+  top: 7rem;
+  width: min(68rem, 92vw);
+  height: min(34rem, 56vh);
+  transform: translateX(-50%);
+  pointer-events: none;
+  border-radius: 48% 48% 18% 18%;
+  background:
+    radial-gradient(ellipse at 50% 78%, rgba(240, 162, 76, 0.24), transparent 38%),
+    linear-gradient(90deg, transparent 0 9%, rgba(255, 215, 164, 0.07) 9.4% 10%, transparent 10.4% 89%, rgba(255, 215, 164, 0.07) 89.4% 90%, transparent 90.4%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%),
+    rgba(0, 0, 0, 0.16);
+  filter: blur(0.2px);
+  opacity: 0.8;
+}
+
+.floor20-ambient::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 7%;
+  width: min(36rem, 72vw);
+  height: 9rem;
+  transform: translateX(-50%) perspective(24rem) rotateX(58deg);
+  border: 1px solid rgba(246, 178, 107, 0.18);
+  border-radius: 50%;
+  background:
+    repeating-linear-gradient(90deg, rgba(250, 220, 170, 0.06) 0 1px, transparent 1px 2.1rem),
+    radial-gradient(ellipse at center, rgba(217, 140, 58, 0.24), rgba(48, 31, 18, 0.16) 44%, transparent 72%);
+  box-shadow: 0 0 70px rgba(217, 140, 58, 0.15);
+}
+
+.floor20-ledger-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  box-shadow: 0 22px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.floor20-ledger-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, rgba(255, 245, 220, 0.05), transparent 34%),
+    repeating-linear-gradient(0deg, transparent 0 1.75rem, rgba(255, 220, 170, 0.03) 1.78rem 1.82rem);
+  opacity: 0.7;
+}
+
+.floor20-ledger-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.floor20-phase-track > div {
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
 }

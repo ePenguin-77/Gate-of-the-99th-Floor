@@ -5,7 +5,7 @@ export type TraitKind = "positive" | "negative" | "double-edged";
 export type ChallengeType = "combat" | "survival" | "puzzle" | "moral" | "npc" | "boss" | "darkness" | "trap" | "preparation";
 export type DifficultyMode = "story" | "survival" | "merciless";
 export type DivineActionId = "whisper" | "omen" | "blessing" | "silence";
-export type ScreenId = "start" | "creation" | "hub" | "tower" | "result" | "character" | "inventory" | "journal" | "npc" | "advancedClass" | "death";
+export type ScreenId = "start" | "creation" | "hub" | "tower" | "result" | "character" | "inventory" | "journal" | "npc" | "settings" | "advancedClass" | "death";
 export type ItemRarity = "common" | "uncommon" | "rare" | "anomaly";
 export type ItemType = "consumable" | "tool" | "charm" | "material" | "quest" | "anomaly";
 export type EncounterPhase = "entrance" | "intent" | "divine" | "midpoint" | "decision" | "result";
@@ -369,6 +369,7 @@ export interface EncounterMidpointOutcome {
 export interface EncounterResolutionOptions {
   decision: EncounterDecisionId;
   midpointModifier?: EncounterTemporaryModifiers;
+  midpointTags?: string[];
 }
 
 export interface FloorIntel {

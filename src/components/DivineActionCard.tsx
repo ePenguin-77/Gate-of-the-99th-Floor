@@ -1,4 +1,5 @@
 import type { ElementType } from "react";
+import { playDivineActionSound } from "../game/audioSystem";
 import type { DivineAction } from "../types/game";
 
 interface DivineActionCardProps {
@@ -10,9 +11,15 @@ interface DivineActionCardProps {
 }
 
 export function DivineActionCard({ action, icon: Icon, selected, floorHint, onSelect }: DivineActionCardProps) {
+  function handleSelect() {
+    playDivineActionSound(action.id);
+    onSelect();
+  }
+
   return (
     <button
-      onClick={onSelect}
+      data-audio-id="ui_tab"
+      onClick={handleSelect}
       className={`border p-4 text-left transition ${
         selected ? "border-ember-300 bg-ember-300/10 shadow-[0_0_24px_rgba(245,158,11,0.12)]" : "border-white/10 bg-black/20 hover:bg-white/[0.08]"
       }`}

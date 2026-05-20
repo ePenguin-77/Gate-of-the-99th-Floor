@@ -77,6 +77,21 @@ export function createMemoryFromEvent(
     });
   }
 
+  if (floor.floor === 20 && cleared) {
+    return buildMemory({
+      title: result.level === "costlySuccess" ? "ชื่อที่ถูกเขียนด้วยเลือด" : "วันที่ชื่อถูกบันทึกใหม่",
+      description:
+        result.level === "costlySuccess"
+          ? "สมุดทะเบียนยอมรับชื่อของเขา แต่หมึกที่ใช้เขียนไม่ได้มาจากขวด มันมาจากบาดแผลและสิ่งที่เขาต้องยอมทิ้งไว้บนหน้ากระดาษ"
+          : "นายทะเบียนแห่งเมืองร้างปิดสมุดลง และชื่อของเขาไม่ได้เป็นเพียงชื่อเดิมอีกต่อไป มันมีร่องรอยของคลาสขั้นสอง ทางเลือก และคนที่เขายังไม่ยอมลืม",
+      type: "growth",
+      intensity: result.level === "greatSuccess" ? 74 : result.level === "success" ? 64 : 58,
+      tags: ["floor20", "act2_finale", "record", "identity", ...tags],
+      floorNumber: floor.floor,
+      effects: { scoreModifier: 1, survival: { hope: 2, morale: 2 } },
+    });
+  }
+
   if (floor.floor === 10 && cleared) {
     return buildMemory({
       title: "ผ่านประตูแรก",

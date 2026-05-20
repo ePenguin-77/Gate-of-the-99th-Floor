@@ -120,13 +120,13 @@ export function applyPressureForTowerResult(state: GameState, level: FloorResult
   if (isRevisit) return applyPressureForActivity(state, "revisit");
 
   let change = 0;
-  if (level === "greatSuccess") change = floor >= 10 ? -6 : -4;
-  else if (level === "success" || level === "costlySuccess") change = floor >= 10 ? -6 : -3;
-  else if (level === "criticalFailure") change = 3;
-  else change = 2;
+  if (level === "greatSuccess") change = floor >= 20 ? -8 : floor === 10 ? -6 : floor >= 11 ? -4 : -4;
+  else if (level === "success" || level === "costlySuccess") change = floor === 10 || floor >= 20 ? -6 : floor >= 11 ? -3 : -3;
+  else if (level === "criticalFailure") change = floor >= 20 ? 5 : floor >= 16 ? 4 : 3;
+  else change = floor >= 20 ? 4 : floor >= 16 ? 3 : 2;
 
   return {
     ...state,
-    towerPressure: clampPressure(floor >= 10 && change < 0 ? 0 : (state.towerPressure ?? 0) + change),
+    towerPressure: clampPressure(floor === 10 && change < 0 ? 0 : (state.towerPressure ?? 0) + change),
   };
 }

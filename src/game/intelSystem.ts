@@ -29,7 +29,7 @@ export function investigateNextFloor(gameState: GameState): InvestigationResult 
 
   const before = structuredClone(gameState.character);
   const character = structuredClone(gameState.character);
-  const nextFloorNumber = Math.min(10, character.maxFloorCleared + 1);
+  const nextFloorNumber = Math.min(20, character.maxFloorCleared + 1);
   const floor = floors.find((item) => item.floor === nextFloorNumber) ?? floors[0];
   const pressureEffects = getTowerPressureEffects(gameState.towerPressure ?? 0);
   const outcome = rollInvestigationOutcome(

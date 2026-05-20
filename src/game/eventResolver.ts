@@ -1,10 +1,11 @@
 import { difficultySettings } from "./difficulty";
 import { divineActions } from "./divineActions";
 import { divineLabels, statLabels, survivalLabels } from "./labels";
+import { getAct2FloorHooks } from "./act2Hooks";
 import { calculateMemoryModifiers, createMemoryFromEvent, getFloorMemoryTags } from "./memorySystem";
 import { getTowerPressureEffects } from "./towerPressure";
 import { calculateTraitEvolutionModifier, updateTraitProgress } from "./traitEvolution";
-import { getAdvancedClassChanceBonus, getAdvancedClassReason } from "./advancedClassSystem";
+import { getAdvancedClass, getAdvancedClassChanceBonus, getAdvancedClassReason } from "./advancedClassSystem";
 import { applyPathChanges, formatPathChanges, getTowerPathChanges } from "./pathAffinity";
 import {
   applyClassActionCost,
@@ -25,6 +26,7 @@ import type {
   FloorDefinition,
   FloorResult,
   FloorResultLevel,
+  NPC,
   PreparationBuff,
   StatKey,
   SurvivalKey,
@@ -102,6 +104,206 @@ function divineActionBonus(actionId: DivineActionId, floor: FloorDefinition, con
   return 0;
 }
 
+function getAct2PressurePenalty(basePenalty: number, floor: FloorDefinition): number {
+  if (floor.floor < 11) return basePenalty;
+  const multiplier = floor.floor >= 20 ? 1.75 : floor.floor >= 16 ? 1.5 : 1.25;
+  return Math.round(basePenalty * multiplier);
+}
+
+function getAdvancedClassFloorSynergy(character: Character, floor: FloorDefinition, actionId: DivineActionId): { bonus: number; drawback: number; reasons: string[] } {
+  if (floor.floor < 11) return { bonus: 0, drawback: 0, reasons: [] };
+  const advancedClass = getAdvancedClass(character);
+  if (!advancedClass) return { bonus: 0, drawback: 0, reasons: ["ผู้หลงทางยังไม่ได้ยอมรับชะตาใหม่ เมืองร้างจึงกดเขาหนักกว่าที่ควร"] };
+  const tags = floor.tags ?? [];
+  let matches = 0;
+  const effects = advancedClass.effects;
+  const hasAny = (items: string[]) => items.some((tag) => tags.includes(tag));
+  if ((effects.blessingBonus ?? 0) > 0 && (actionId === "blessing" || hasAny(["faith", "boss", "hope", "morale"]))) matches += 2;
+  if ((effects.silenceBonus ?? 0) > 0 && (actionId === "silence" || hasAny(["identity", "independent", "shadow"]))) matches += 2;
+  if ((effects.puzzleBonus ?? 0) > 0 && (floor.challengeType === "puzzle" || hasAny(["puzzle", "mechanism", "false_rule", "intel", "book"]))) matches += 2;
+  if ((effects.trapBonus ?? 0) > 0 && (floor.challengeType === "trap" || hasAny(["trap", "stealth", "danger", "fire"]))) matches += 2;
+  if ((effects.darknessBonus ?? 0) > 0 && hasAny(["darkness", "fear"])) matches += 2;
+  if ((effects.survivalBonus ?? 0) > 0 && (floor.challengeType === "survival" || hasAny(["survival", "resource", "hunger", "fatigue", "time"]))) matches += 2;
+  if ((effects.combatBonus ?? 0) > 0 && (floor.challengeType === "combat" || floor.challengeType === "boss" || hasAny(["combat", "boss"]))) matches += 2;
+  if ((effects.npcBonus ?? 0) > 0 && (floor.challengeType === "npc" || hasAny(["npc", "promise", "merciful", "protector", "guilt"]))) matches += 2;
+  if ((effects.pressureBonus ?? 0) > 0 && hasAny(["pressure", "death_echo", "act2_finale"])) matches += 1;
+  if (floor.floor === 20 && matches > 0) matches += 1;
+
+  let drawback = 0;
+  const reasons: string[] = [];
+  if (matches > 0) {
+    const bonus = floor.floor === 20 ? 12 : Math.min(14, 8 + matches * 2);
+    reasons.push(`คลาสขั้นสอง “${advancedClass.nameTh}” สอดคล้องกับบททดสอบของชั้นนี้`);
+    return { bonus, drawback: getAdvancedClassDrawbackPenalty(character, floor, actionId, reasons), reasons };
+  }
+  if ((effects.blessingBonus ?? 0) < 0 && actionId === "blessing") drawback -= 3;
+  if ((effects.npcBonus ?? 0) < 0 && (floor.challengeType === "npc" || tags.includes("npc"))) drawback -= 3;
+  if (drawback < 0) reasons.push(`ข้อเสียของคลาสขั้นสอง “${advancedClass.nameTh}” ทำให้ชั้นนี้รับมือยากขึ้น`);
+  return { bonus: 0, drawback, reasons };
+}
+
+function getAdvancedClassDrawbackPenalty(character: Character, floor: FloorDefinition, actionId: DivineActionId, reasons: string[]): number {
+  const advancedClass = getAdvancedClass(character);
+  if (!advancedClass) return 0;
+  let drawback = 0;
+  if ((advancedClass.effects.blessingBonus ?? 0) < 0 && actionId === "blessing") {
+    drawback -= 3;
+    reasons.push("พรแห่งเทพไม่เข้ากับเส้นทางขั้นสองของเขานัก");
+  }
+  if ((advancedClass.effects.npcBonus ?? 0) < 0 && (floor.challengeType === "npc" || (floor.tags ?? []).includes("npc"))) {
+    drawback -= 3;
+    reasons.push("ข้อเสียของคลาสขั้นสองทำให้เหตุการณ์ที่เกี่ยวกับผู้คนหนักขึ้น");
+  }
+  if ((advancedClass.effects.rewardModifier ?? 0) < 0 && (floor.tags ?? []).some((tag) => ["market", "gold", "tax"].includes(tag))) {
+    drawback -= 2;
+    reasons.push("นิสัยการช่วยคนก่อนเก็บของทำให้ชั้นที่เกี่ยวกับทรัพยากรเสียเปรียบเล็กน้อย");
+  }
+  return drawback;
+}
+
+function getAct2StatusPenaltyDetails(character: Character, floor: FloorDefinition): { total: number; details: EstimateDetail[]; reasons: string[] } {
+  if (floor.floor < 11) return { total: 0, details: [], reasons: [] };
+  const { hunger, fatigue, injury, sickness } = character.survival;
+  const details: EstimateDetail[] = [];
+  const reasons: string[] = [];
+  let total = 0;
+  const add = (label: string, value: number, reason: string) => {
+    total += value;
+    details.push({ label, value });
+    reasons.push(reason);
+  };
+  if (hunger >= 95) add("บทลงโทษความหิวในเมืองร้าง", -5, "เมืองร้างลงโทษความหิวรุนแรงกว่าช่วงก่อนประตูแรก");
+  else if (hunger >= 80) add("บทลงโทษความหิวในเมืองร้าง", -3, "ความหิวทำให้ภาพลวงในเมืองร้างน่าเชื่อขึ้น");
+  else if (hunger >= 60) add("บทลงโทษความหิวในเมืองร้าง", -2, "ความหิวเริ่มทำให้ตัดสินใจพลาดในเมืองร้าง");
+  else if (hunger >= 40) add("บทลงโทษความหิวในเมืองร้าง", -1, "แม้ความหิวระดับต้นก็มีผลในเมืองร้างเหนือประตูแรก");
+
+  if (fatigue >= 95) add("บทลงโทษความเหนื่อยล้าในเมืองร้าง", -5, "ความเหนื่อยล้าขั้นวิกฤตอาจทำให้เขาทรุดกลางชั้น Act 2");
+  else if (fatigue >= 80) add("บทลงโทษความเหนื่อยล้าในเมืองร้าง", -4, "เมืองร้างทำให้ความเหนื่อยล้ากลายเป็นความผิดพลาดเร็วขึ้น");
+  else if (fatigue >= 60) add("บทลงโทษความเหนื่อยล้าในเมืองร้าง", -4, "ความเหนื่อยล้าทำให้การตอบสนองในเมืองร้างช้าลงมาก");
+  else if (fatigue >= 40) add("บทลงโทษความเหนื่อยล้าในเมืองร้าง", -1, "ความเหนื่อยล้าระดับต้นเริ่มสร้างเสียงรบกวนในเมืองร้าง");
+
+  if (injury >= 90) add("บทลงโทษบาดแผลในเมืองร้าง", -4, "บาดแผลระดับวิกฤตอาจกลายเป็นจุดจบหากฝืนเมืองร้าง");
+  else if (injury >= 70) add("บทลงโทษบาดแผลในเมืองร้าง", -5, "บาดแผลหนักทำให้ชั้น Act 2 อันตรายขึ้นชัดเจน");
+  else if (injury >= 40) add("บทลงโทษบาดแผลในเมืองร้าง", -4, "บาดแผลที่ยังไม่หายทำให้เมืองร้างอ่านจุดอ่อนของเขาได้");
+  else if (injury >= 20) add("บทลงโทษบาดแผลในเมืองร้าง", -6, "แม้บาดแผลไม่ลึก เมืองร้างก็รู้วิธีบังคับให้มันเปิดซ้ำ");
+
+  if (sickness >= 90) add("บทลงโทษอาการป่วยในเมืองร้าง", -5, "อาการป่วยระดับวิกฤตทำให้เมืองร้างเหมือนมีพิษในอากาศ");
+  else if (sickness >= 70) add("บทลงโทษอาการป่วยในเมืองร้าง", -4, "อาการป่วยทำให้ความหวังและแรงใจถูกกัดกินเร็วขึ้น");
+  else if (sickness >= 40) add("บทลงโทษอาการป่วยในเมืองร้าง", -2, "อาการป่วยทำให้การเดินในเมืองร้างสิ้นแรงเร็วกว่าปกติ");
+  return { total, details, reasons };
+}
+
+function getAct2FloorSpecificModifier(character: Character, floor: FloorDefinition, floorIntel: FloorIntel | undefined, towerPressure: number): { successModifier: number; injuryRiskModifier: number; moraleFailurePenalty: number; hopeFailurePenalty: number; sicknessFailureBonus: number; reasons: string[] } {
+  if (floor.floor < 11) return { successModifier: 0, injuryRiskModifier: 0, moraleFailurePenalty: 0, hopeFailurePenalty: 0, sicknessFailureBonus: 0, reasons: [] };
+  const tags = floor.tags ?? [];
+  const reasons: string[] = [];
+  let successModifier = 0;
+  let injuryRiskModifier = 0;
+  let moraleFailurePenalty = 0;
+  let hopeFailurePenalty = 0;
+  let sicknessFailureBonus = 0;
+  const hasEquipped = (itemId: string) => (character.equippedItems ?? []).includes(itemId);
+
+  if (floor.floor === 11 && character.stats.instinct <= 9) {
+    injuryRiskModifier += 8;
+    reasons.push("สัญชาตญาณต่ำทำให้กับดักและคำสาปในตลาดร้างอันตรายขึ้น");
+  }
+  if (floor.floor === 12 && character.survival.fatigue >= 60) {
+    successModifier -= 8;
+    reasons.push("ความเหนื่อยล้าทำให้เสียงฝีเท้าดังเกินควบคุมในโรงเก็บเสียง");
+  }
+  if (floor.floor === 13 && character.survival.hope <= 50) {
+    moraleFailurePenalty += 5;
+    reasons.push("ความหวังต่ำทำให้จัตุรัสคนไร้เงากัดกินตัวตนได้ง่ายขึ้น");
+  }
+  if (floor.floor === 14 && floorIntel?.isFalse) {
+    successModifier -= 6;
+    reasons.push("ข้อมูลปลอมอันตรายเป็นพิเศษในห้องสมุดที่กินคำตอบ");
+  }
+  if (floor.floor === 15 && towerPressure >= 8) {
+    successModifier -= 8;
+    reasons.push("หอนาฬิกาตอบสนองต่อความกดดันของหอคอยอย่างรุนแรง");
+  }
+  if (floor.floor === 15 && character.survival.fatigue >= 70) {
+    injuryRiskModifier += 10;
+    reasons.push("ความเหนื่อยล้าสูงทำให้เสี่ยงทรุดกลางหอนาฬิกา");
+  }
+  if (floor.floor === 16 && character.memories.some((memory) => memory.tags.includes("guilt"))) {
+    moraleFailurePenalty += 5;
+    reasons.push("ความทรงจำแห่งความผิดทำให้ศาลาคำสัญญาเจ็บลึกขึ้น");
+  }
+  if (floor.floor === 17 && !hasEquipped("rough_bandage") && !hasEquipped("bitter_medicine")) {
+    injuryRiskModifier += 10;
+    reasons.push("ไม่มีอุปกรณ์รักษาที่เหมาะกับความเสี่ยงจากโรงตีเหล็ก");
+  }
+  if (floor.floor === 18 && character.survival.hope <= 45) {
+    moraleFailurePenalty += 6;
+    hopeFailurePenalty += 4;
+    reasons.push("ความหวังต่ำทำให้ถนนที่ย้อนจำชื่อเกือบลบเหตุผลที่จะเดินต่อ");
+  }
+  if (floor.floor === 19 && character.gold <= 0) {
+    moraleFailurePenalty += 4;
+    injuryRiskModifier += 6;
+    reasons.push("ไม่มีทองต่อรองกับด่านภาษีทำให้ทางเลือกแคบลง");
+  } else if (floor.floor === 19 && character.gold >= 40) {
+    successModifier -= 4;
+    reasons.push("ทองที่มากเกินไปทำให้ด่านภาษีของผู้เฝ้าตั้งราคาแพงขึ้น");
+  }
+  if (floor.floor === 20) {
+    successModifier -= 6;
+    injuryRiskModifier += 8;
+    moraleFailurePenalty += 5;
+    reasons.push("นายทะเบียนแห่งชั้นถัดไปใช้คลาสขั้นสองและชะตาที่ก่อตัวเป็นแกนของบททดสอบ");
+  }
+  if (tags.includes("fire") && character.survival.injury >= 40) sicknessFailureBonus += 4;
+  return { successModifier, injuryRiskModifier, moraleFailurePenalty, hopeFailurePenalty, sicknessFailureBonus, reasons };
+}
+
+function getAct2PreparednessModifier(
+  floor: FloorDefinition,
+  matchingIntel: FloorIntel | undefined,
+  preparationBuff: PreparationBuff | undefined,
+  itemEffects: { successBonus: number; injuryRiskReduction: number; criticalProtection: boolean; reasons: string[] },
+  synergyBonus: number,
+): { successModifier: number; injuryRiskModifier: number; moraleFailurePenalty: number; reasons: string[]; unprepared: boolean } {
+  if (floor.floor < 11) return { successModifier: 0, injuryRiskModifier: 0, moraleFailurePenalty: 0, reasons: [], unprepared: false };
+  const prepared = Boolean(matchingIntel) || Boolean(preparationBuff) || itemEffects.successBonus > 0 || itemEffects.injuryRiskReduction > 0 || itemEffects.criticalProtection || synergyBonus > 0;
+  if (prepared) return { successModifier: 0, injuryRiskModifier: 0, moraleFailurePenalty: 0, reasons: ["มีการเตรียมตัวบางอย่างช่วยรับมือเมืองร้างเหนือประตูแรก"], unprepared: false };
+  const successModifier = floor.floor >= 20 ? -15 : floor.floor >= 16 ? -12 : -8;
+  const injuryRiskModifier = floor.floor >= 20 ? 15 : floor.floor >= 16 ? 12 : 8;
+  return {
+    successModifier,
+    injuryRiskModifier,
+    moraleFailurePenalty: floor.floor >= 20 ? 5 : 0,
+    reasons: ["ผู้หลงทางแทบไม่มีสิ่งใดช่วยรับมือชั้นนี้ การฝืนขึ้นไปโดยไม่เตรียมตัวอาจมีราคาสูง"],
+    unprepared: true,
+  };
+}
+
+function getAct2FailureAdjustments(
+  floor: FloorDefinition,
+  critical: boolean,
+  preparedness: { moraleFailurePenalty: number },
+  floorSpecific: { moraleFailurePenalty: number; hopeFailurePenalty: number; sicknessFailureBonus: number },
+): { fatigue: number; injury: number; morale: number; hope: number; sickness: number; effects: string[] } {
+  if (floor.floor < 11) return { fatigue: 0, injury: 0, morale: 0, hope: 0, sickness: 0, effects: [] };
+  const floor20 = floor.floor >= 20;
+  const lateAct2 = floor.floor >= 16 && floor.floor < 20;
+  const fatigue = critical ? (floor20 ? 20 : lateAct2 ? 14 : 8) : floor20 ? 8 : lateAct2 ? 5 : 3;
+  const injury = critical ? (floor20 ? 24 : lateAct2 ? 14 : 7) : floor20 ? 8 : lateAct2 ? 5 : 2;
+  const morale = (critical ? (floor20 ? 15 : lateAct2 ? 10 : 5) : floor20 ? 5 : lateAct2 ? 3 : 0) + preparedness.moraleFailurePenalty + floorSpecific.moraleFailurePenalty;
+  const hope = (critical ? (floor20 ? 10 : lateAct2 ? 5 : 2) : floor20 ? 4 : 0) + floorSpecific.hopeFailurePenalty;
+  const sickness = (critical ? (floor20 ? 10 : lateAct2 ? 6 : 3) : 0) + floorSpecific.sicknessFailureBonus;
+  return {
+    fatigue,
+    injury,
+    morale,
+    hope,
+    sickness,
+    effects: ["เมืองร้างเหนือประตูแรกลงโทษความผิดพลาดรุนแรงกว่าชั้นก่อนหน้า"],
+  };
+}
+
 function statusPenaltyDetails(character: Character, floor: FloorDefinition): { total: number; details: EstimateDetail[]; reasons: string[] } {
   const details: EstimateDetail[] = [];
   const reasons: string[] = [];
@@ -140,6 +342,10 @@ function statusPenaltyDetails(character: Character, floor: FloorDefinition): { t
 }
 
 function floorClamp(floorNumber: number): { min: number; max: number } {
+  if (floorNumber >= 20) return { min: 8, max: 48 };
+  if (floorNumber >= 16) return { min: 10, max: 55 };
+  if (floorNumber >= 13) return { min: 12, max: 60 };
+  if (floorNumber >= 11) return { min: 15, max: 70 };
   if (floorNumber >= 10) return { min: 10, max: 60 };
   if (floorNumber >= 7) return { min: 12, max: 65 };
   if (floorNumber >= 4) return { min: 15, max: 70 };
@@ -163,6 +369,7 @@ export function estimateTowerAttempt(
   const moraleBonus = Math.floor((character.survival.morale - 50) / 5);
   const hopeBonus = Math.floor((character.survival.hope - 50) / 5);
   const status = statusPenaltyDetails(character, floor);
+  const act2Status = getAct2StatusPenaltyDetails(character, floor);
   const memoryBonus = calculateMemoryModifiers(character, contextTags);
   const traitEvolutionBonus = calculateTraitEvolutionModifier(character, contextTags, actionId);
   const divineBonus = Math.max(0, divineActionBonus(actionId, floor, contextTags, character) - (divineStrain > 0 ? 5 : 0));
@@ -173,6 +380,11 @@ export function estimateTowerAttempt(
   const matchingIntel = floorIntel?.expiresAfterNextTower ? floorIntel : floorIntel?.floorNumber === floor.floor ? floorIntel : undefined;
   const intelBonus = matchingIntel?.successBonus ?? 0;
   const pressureEffects = getTowerPressureEffects(towerPressure);
+  const pressurePenalty = getAct2PressurePenalty(pressureEffects.successChancePenalty, floor);
+  const advancedClassSynergy = getAdvancedClassFloorSynergy(character, floor, actionId);
+  const act2FloorModifier = getAct2FloorSpecificModifier(character, floor, matchingIntel, towerPressure);
+  const act2Preparedness = getAct2PreparednessModifier(floor, matchingIntel, preparationBuff, itemEffects, advancedClassSynergy.bonus);
+  const act2Hooks = getAct2FloorHooks({ character, floor, towerPressure });
   const floorPressure = floor.floor * 3;
   const preparedness =
     averageStat * 5 +
@@ -185,7 +397,10 @@ export function estimateTowerAttempt(
     relationshipBonus(character, actionId) +
     classPassiveBonus +
     advancedClassBonus +
-    status.total -
+    advancedClassSynergy.bonus +
+    advancedClassSynergy.drawback +
+    status.total +
+    act2Status.total -
     floorPressure;
   const difficulty = floor.difficulty ?? 80;
   const settings = difficultySettings[difficultyMode];
@@ -197,7 +412,10 @@ export function estimateTowerAttempt(
     preparationBonus +
     intelBonus +
     itemEffects.successBonus +
-    pressureEffects.successChancePenalty +
+    pressurePenalty +
+    act2Preparedness.successModifier +
+    act2FloorModifier.successModifier +
+    act2Hooks.successBonus +
     settings.successChanceModifier;
   const limits = floorClamp(floor.floor);
   const chance = clamp(Math.round(rawChance), limits.min, limits.max);
@@ -220,12 +438,14 @@ export function estimateTowerAttempt(
     divineBonus,
     intelBonus,
     preparationBonus,
-    towerPressurePenalty: pressureEffects.successChancePenalty,
+    towerPressurePenalty: pressurePenalty,
     riskLabel,
     advice,
-    penalties: status.details,
+    penalties: [...status.details, ...act2Status.details],
     reasons: [
+      ...(floor.floor >= 11 ? [...advancedClassSynergy.reasons, ...act2Preparedness.reasons, ...act2FloorModifier.reasons, ...act2Hooks.resultExplanationLines] : []),
       ...status.reasons,
+      ...act2Status.reasons,
       ...(matchingIntel && matchingIntel.successBonus !== 0
         ? [matchingIntel.isFalse ? "ข้อมูลที่ได้มาอาจทำให้ประเมินชั้นนี้ผิดทิศ" : "ข้อมูลที่ได้มาช่วยให้เตรียมรับมือชั้นนี้ดีขึ้น"]
         : []),
@@ -233,6 +453,10 @@ export function estimateTowerAttempt(
       ...(floor.uniqueMechanicTh ? [floor.uniqueMechanicTh] : []),
       ...(getClassPassiveReason(character, floor, actionId) ? [getClassPassiveReason(character, floor, actionId)!] : []),
       ...(getAdvancedClassReason(character, floor, actionId, towerPressure) ? [getAdvancedClassReason(character, floor, actionId, towerPressure)!] : []),
+      ...advancedClassSynergy.reasons,
+      ...act2Preparedness.reasons,
+      ...act2FloorModifier.reasons,
+      ...(towerPressure >= 8 && floor.floor >= 11 ? ["เมืองร้างเหนือประตูแรกตอบสนองต่อความลังเลแรงกว่าเดิม ถนนและกฎของมันยิ่งบิดเบี้ยว"] : []),
       ...itemEffects.reasons,
     ].slice(0, 4),
   };
@@ -326,6 +550,7 @@ export function resolveFloor(
   divineStrain = 0,
   towerPressure = 0,
   encounterOptions?: EncounterResolutionOptions,
+  act2Context?: { npcs?: NPC[]; lifeDebtMarks?: number },
 ): { character: Character; result: FloorResult } {
   const action = divineActions.find((item) => item.id === actionId) ?? divineActions[0];
   const before: Character = structuredClone(character);
@@ -336,6 +561,10 @@ export function resolveFloor(
   let encounterInjuryModifier = encounterOptions?.midpointModifier?.injuryRiskModifier ?? 0;
   let encounterMoraleModifier = encounterOptions?.midpointModifier?.moraleModifier ?? 0;
   let encounterFatigueModifier = encounterOptions?.midpointModifier?.fatigueModifier ?? 0;
+  const midpointReasonTags = (encounterOptions?.midpointTags ?? [])
+    .filter((tag) => tag.startsWith("reason:"))
+    .map((tag) => tag.replace("reason:", ""));
+  encounterNotes.push(...midpointReasonTags);
 
   if (encounterOptions?.decision === "push") {
     encounterChanceBonus += 10;
@@ -422,6 +651,14 @@ export function resolveFloor(
   const contextTags = getFloorMemoryTags(floor);
   const itemEffects = getItemEffectsForCharacter(nextCharacter, contextTags);
   const pressureEffects = getTowerPressureEffects(towerPressure);
+  const act2Synergy = getAdvancedClassFloorSynergy(nextCharacter, floor, action.id);
+  const act2FloorModifier = getAct2FloorSpecificModifier(nextCharacter, floor, matchingIntel, towerPressure);
+  const act2Preparedness = getAct2PreparednessModifier(floor, matchingIntel, preparationBuff, itemEffects, act2Synergy.bonus);
+  const act2Hooks = getAct2FloorHooks({ character: nextCharacter, floor, npcs: act2Context?.npcs, lifeDebtMarks: act2Context?.lifeDebtMarks, towerPressure });
+  const previewAct2Hooks = getAct2FloorHooks({ character: nextCharacter, floor, towerPressure });
+  encounterChanceBonus += act2Hooks.successBonus - previewAct2Hooks.successBonus;
+  encounterInjuryModifier += act2Preparedness.injuryRiskModifier + act2FloorModifier.injuryRiskModifier + (act2Hooks.injuryRiskModifier - previewAct2Hooks.injuryRiskModifier);
+  encounterNotes.push(...act2Synergy.reasons, ...act2Preparedness.reasons, ...act2FloorModifier.reasons, ...act2Hooks.specialLinesTh, ...act2Hooks.resultExplanationLines);
   const estimate = estimateTowerAttempt(nextCharacter, floor, action.id, revisit, preparationBuff, matchingIntel, difficultyMode, divineStrain, towerPressure);
   const rollValue = Math.floor(Math.random() * 100) + 1;
   const finalChance = clamp(Math.round(estimate.chance + encounterChanceBonus), floorClamp(floor.floor).min, floorClamp(floor.floor).max);
@@ -453,7 +690,7 @@ export function resolveFloor(
   const rewardMultiplier = settings.rewardMultiplier;
   const penaltyMultiplier = settings.penaltyMultiplier;
   const injuryReduction = (preparationBuff?.injuryRiskReduction ?? 0) + (matchingIntel?.injuryRiskReduction ?? 0) + itemEffects.injuryRiskReduction;
-  const pressureInjury = pressureEffects.injuryRiskBonus + encounterInjuryModifier;
+  const pressureInjury = getAct2PressurePenalty(pressureEffects.injuryRiskBonus, floor) + encounterInjuryModifier;
   let resolvedLevel = level;
   if (resolvedLevel === "criticalFailure" && itemEffects.criticalProtection && nextCharacter.equippedItems.includes("broken_charm")) {
     resolvedLevel = "failure";
@@ -496,6 +733,11 @@ export function resolveFloor(
         effects.push("ราคาของประตูแรกทิ้งรอยลึกไว้ แต่ประตูก็ยอมเปิด");
       }
     }
+    if (floor.floor === 20) {
+      mutateSurvival(nextCharacter, "morale", resolvedLevel === "costlySuccess" ? 8 : 4);
+      mutateSurvival(nextCharacter, "hope", resolvedLevel === "costlySuccess" ? 7 : 4);
+      effects.push("นายทะเบียนแห่งเมืองร้างยอมปิดสมุด ความหวังและขวัญกำลังใจกลับมาพอให้เขาก้าวสู่ชั้นต่อไป");
+    }
     if (encounterOptions?.decision === "self") {
       nextCharacter.divine.independence = clamp(nextCharacter.divine.independence + 2, 0, 100);
       mutateSurvival(nextCharacter, "morale", 1);
@@ -505,7 +747,7 @@ export function resolveFloor(
       if (resolvedLevel === "greatSuccess" || chance(resolvedLevel === "success" ? 45 : 20)) mutateStat(nextCharacter, stat as StatKey, amount ?? 0);
     });
     nextCharacter.maxFloorCleared = Math.max(nextCharacter.maxFloorCleared, floor.floor);
-    nextCharacter.currentFloor = Math.min(10, nextCharacter.maxFloorCleared + 1);
+    nextCharacter.currentFloor = Math.min(20, nextCharacter.maxFloorCleared + 1);
     const classSuccess = applyClassSuccessPassives(nextCharacter, floor, resolvedLevel, revisit, encounterOptions?.decision === "classAction");
     nextCharacter = classSuccess.character;
     effects.push(...classSuccess.notes);
@@ -534,6 +776,17 @@ export function resolveFloor(
     if ((consequences?.sicknessChance && chance(consequences.sicknessChance + (critical ? 20 : 0))) || (critical && floor.challengeType === "survival")) {
       mutateSurvival(nextCharacter, "sickness", scaled(critical ? 12 : 7, penaltyMultiplier) + Math.floor(pressureEffects.sicknessRiskBonus / 3));
     }
+    const act2Failure = getAct2FailureAdjustments(floor, critical, act2Preparedness, {
+      moraleFailurePenalty: act2FloorModifier.moraleFailurePenalty + act2Hooks.moraleFailureModifier,
+      hopeFailurePenalty: act2FloorModifier.hopeFailurePenalty + act2Hooks.hopeFailureModifier,
+      sicknessFailureBonus: act2FloorModifier.sicknessFailureBonus + act2Hooks.sicknessFailureModifier,
+    });
+    if (act2Failure.fatigue > 0) mutateSurvival(nextCharacter, "fatigue", scaled(act2Failure.fatigue, penaltyMultiplier));
+    if (act2Failure.injury > 0) mutateSurvival(nextCharacter, "injury", scaled(act2Failure.injury, penaltyMultiplier));
+    if (act2Failure.morale > 0) mutateSurvival(nextCharacter, "morale", -scaled(act2Failure.morale, penaltyMultiplier));
+    if (act2Failure.hope > 0) mutateSurvival(nextCharacter, "hope", -scaled(act2Failure.hope, penaltyMultiplier));
+    if (act2Failure.sickness > 0) mutateSurvival(nextCharacter, "sickness", scaled(act2Failure.sickness, penaltyMultiplier));
+    effects.push(...act2Failure.effects);
     effects.push(critical ? `ล้มเหลวอย่างรุนแรงและเสียทอง ${goldLoss}` : `ถอยกลับจากชั้นนี้และเสียทอง ${goldLoss}`);
     const classFailure = applyClassFailurePassives(nextCharacter, floor, resolvedLevel);
     nextCharacter = classFailure.character;
@@ -592,6 +845,8 @@ export function resolveFloor(
     actionName: action.name,
     effects: [...effects, ...changeLines],
     importantReasons: [
+      ...midpointReasonTags,
+      ...act2Hooks.resultExplanationLines,
       ...buildImportantReasons(nextCharacter, floor, action.id, estimate, matchingIntel, preparationBuff, towerPressure),
       ...(encounterOptions?.decision === "push" ? ["การฝืนเสี่ยงเพิ่มแรงส่ง แต่ทำให้ราคาของความผิดพลาดสูงขึ้น"] : []),
       ...(encounterOptions?.decision === "resource" ? ["ทรัพยากรที่ใช้กลางทางเปลี่ยนจังหวะของการเอาตัวรอด"] : []),
@@ -623,13 +878,15 @@ export function resolveFloor(
       floorIntel: matchingIntel,
     }),
   );
-  const pathEffectLines = pathUpdate.changes.length > 0 ? ["ร่องรอยของชะตา:", ...formatPathChanges(pathUpdate.changes)] : [];
+  const act2PathUpdate = applyPathChanges(pathUpdate.character, act2Hooks.pathChanges);
+  const allPathChanges = [...pathUpdate.changes, ...act2PathUpdate.changes];
+  const pathEffectLines = allPathChanges.length > 0 ? ["ร่องรอยของชะตา:", ...formatPathChanges(allPathChanges)] : [];
 
   return {
-    character: pathUpdate.character,
+    character: act2PathUpdate.character,
     result: {
       ...baseResult,
-      pathChanges: pathUpdate.changes,
+      pathChanges: allPathChanges,
       memoryCreated: memoryCreated ?? undefined,
       traitProgressUpdates: traitEvolution.updates,
       effects: [
@@ -670,6 +927,14 @@ function buildImportantReasons(
   if (classReason) reasons.push(classReason);
   const advancedReason = getAdvancedClassReason(character, floor, actionId, towerPressure);
   if (advancedReason) reasons.push(advancedReason);
+  if (floor.floor >= 11) {
+    const contextTags = getFloorMemoryTags(floor);
+    const itemEffects = getItemEffectsForCharacter(character, contextTags);
+    const synergy = getAdvancedClassFloorSynergy(character, floor, actionId);
+    const floorSpecific = getAct2FloorSpecificModifier(character, floor, intel, towerPressure);
+    const preparedness = getAct2PreparednessModifier(floor, intel, preparationBuff, itemEffects, synergy.bonus);
+    reasons.push(...synergy.reasons, ...preparedness.reasons, ...floorSpecific.reasons);
+  }
   if (estimate.chance < 35) reasons.push("โอกาสโดยรวมต่ำมากตั้งแต่ก่อนก้าวเข้าไป");
   return Array.from(new Set(reasons)).slice(0, 4);
 }

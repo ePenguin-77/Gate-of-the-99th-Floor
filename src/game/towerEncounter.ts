@@ -89,6 +89,37 @@ export function getFloorMidpoint(floor: FloorDefinition, character: Character, d
     },
   };
 
+  floorSpecific[11] = {
+    id: "dust-market-stall",
+    title: "แผงขายของที่ยังรอเงินทอน",
+    narrative: `แผงขายของหนึ่งมีเสบียงและเครื่องมือวางอยู่ครบถ้วน แต่ถ้วยรับเหรียญข้างๆ สั่นเบาๆ เหมือนยังรอให้ใครจ่ายราคา ${pressureLine}`.trim(),
+    tags: ["market", "resource", "risk"],
+  };
+  floorSpecific[12] = {
+    id: "listening-floorboard",
+    title: "พื้นไม้ที่ฟังเสียงเท้า",
+    narrative: `พื้นไม้ตรงหน้ามีรอยตะปูเรียงเป็นจังหวะประหลาด ทุกครั้งที่เขาขยับ เสียงสะท้อนด้านหลังก็ขยับตามเร็วกว่าเดิม ${pressureLine}`.trim(),
+    tags: ["trap", "stealth", "darkness"],
+  };
+  floorSpecific[13] = {
+    id: "shadowless-greeting",
+    title: "คำทักทายจากคนไร้เงา",
+    narrative: "คนไร้เงาคนหนึ่งยิ้มให้และเรียกชื่อเขาถูกต้อง ทั้งที่ไม่มีใครในจัตุรัสควรรู้ว่าเขาเป็นใคร",
+    tags: ["identity", "npc", "anomaly"],
+  };
+  floorSpecific[14] = {
+    id: "book-that-answers-first",
+    title: "หนังสือที่ตอบก่อนถูกถาม",
+    narrative: `หนังสือเล่มหนึ่งเปิดเองตรงหน้ากระดาษที่เขียนคำตอบไว้แล้ว ปัญหาคือเขายังไม่ได้ถามคำถามนั้น ${pressureLine}`.trim(),
+    tags: ["puzzle", "intel", "false_rule"],
+  };
+  floorSpecific[15] = {
+    id: "clock-heartbeat",
+    title: "เข็มนาฬิกาที่เดินตามหัวใจ",
+    narrative: "นาฬิกาบานใหญ่เริ่มเดินตามจังหวะหัวใจของเขา ถ้าเขารีบเกินไป เข็มจะเร่ง ถ้าเขาช้าเกินไป เข็มจะหยุด",
+    tags: ["time", "fatigue", "pressure"],
+  };
+
   const generic = {
     id: "tower-shift",
     title: "หอคอยเปลี่ยนจังหวะ",

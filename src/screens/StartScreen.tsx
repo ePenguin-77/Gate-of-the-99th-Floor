@@ -1,4 +1,5 @@
 import { RotateCcw, Sparkles } from "lucide-react";
+import type { CSSProperties } from "react";
 
 interface StartScreenProps {
   canContinue: boolean;
@@ -7,26 +8,38 @@ interface StartScreenProps {
   onReset: () => void;
 }
 
+const titleGateModules = import.meta.glob("../assets/backgrounds/title-gate.webp", {
+  eager: true,
+  import: "default",
+  query: "?url",
+}) as Record<string, string>;
+const titleGateBg = Object.values(titleGateModules)[0];
+
 export function StartScreen({ canContinue, onNewGame, onContinue, onReset }: StartScreenProps) {
   return (
     <main className="start-screen">
-      <section className="title-hero" aria-labelledby="game-title">
+      <section
+        className="title-hero"
+        style={titleGateBg ? ({ "--title-gate-bg": `url(${titleGateBg})` } as CSSProperties) : undefined}
+        aria-labelledby="game-title"
+      >
         <div className="title-overlay" />
-        <div className="tower-silhouette" aria-hidden="true">
-          <span className="tower-spire" />
-          <span className="tower-body" />
-          <span className="tower-gate" />
-        </div>
         <div className="title-fog title-fog-a" aria-hidden="true" />
         <div className="title-fog title-fog-b" aria-hidden="true" />
 
         <div className="title-content">
           <div className="title-copy">
-            <p className="title-kicker">ต้นแบบเกมสวมบทบาทเอาตัวรอดเชิงเล่าเรื่อง</p>
-            <h1 id="game-title" className="title-main">
-              Gate of the 99th Floor
-            </h1>
-            <p className="title-subtitle">ประตูแห่งชั้นที่ 99</p>
+            <div className="title-logo-block">
+              <p className="title-kicker">ต้นแบบเกมสวมบทบาทเอาตัวรอดเชิงเล่าเรื่อง</p>
+              <h1 id="game-title" className="game-title">
+                <span>GATE OF THE</span>
+                <span>
+                  99<span className="ordinal-suffix">TH</span> FLOOR
+                </span>
+              </h1>
+              <div className="title-divider" aria-hidden="true" />
+              <p className="title-subtitle">ประตูแห่งชั้นที่ 99</p>
+            </div>
             <p className="title-description">
               มนุษย์คนหนึ่งติดอยู่ในโลกของเกม และต้องปีนหอคอย 99 ชั้นเพื่อกลับบ้าน
               <br />
@@ -46,13 +59,13 @@ export function StartScreen({ canContinue, onNewGame, onContinue, onReset }: Sta
             </div>
 
             <div className="start-menu-actions">
-              <button className="start-button start-button-primary" onClick={onNewGame}>
+              <button className="start-button start-button-primary" data-audio-id="ui_confirm" onClick={onNewGame}>
                 เริ่มเกมใหม่
               </button>
-              <button className="start-button start-button-secondary" onClick={onContinue} disabled={!canContinue}>
+              <button className="start-button start-button-secondary" data-audio-id="ui_confirm" onClick={onContinue} disabled={!canContinue}>
                 {canContinue ? "เล่นต่อ" : "ยังไม่มีเซฟให้เล่นต่อ"}
               </button>
-              <button className="start-button start-button-danger" onClick={onReset} disabled={!canContinue}>
+              <button className="start-button start-button-danger" data-audio-id="ui_warning" onClick={onReset} disabled={!canContinue}>
                 <RotateCcw size={16} /> ลบเซฟ
               </button>
             </div>

@@ -49,11 +49,7 @@ export function TowerFocusCard({
   const challengePreview = "เสี่ยงตามชั้น / ความหิว +16 / ความเหนื่อยล้า +24";
 
   return (
-    <Panel className="relative overflow-hidden rounded-[1.35rem] border-ember-300/30 bg-[radial-gradient(circle_at_78%_10%,rgba(217,140,58,0.22),transparent_30%),linear-gradient(135deg,rgba(20,18,22,0.96),rgba(7,7,10,0.94))] p-5 shadow-2xl shadow-amber-950/20 sm:p-6">
-      <div className="pointer-events-none absolute bottom-0 right-8 hidden h-56 w-28 opacity-25 md:block">
-        <div className="absolute bottom-0 left-1/2 h-52 w-16 -translate-x-1/2 rounded-t-full border border-ember-300/20 bg-black/40 shadow-[0_0_60px_rgba(245,158,11,0.22)]" />
-        <div className="absolute bottom-0 left-1/2 h-20 w-24 -translate-x-1/2 rounded-t-full border border-ember-300/25 bg-ember-300/10 blur-[1px]" />
-      </div>
+    <Panel className="relative overflow-hidden rounded-[1.35rem] border-ember-300/30 bg-[radial-gradient(circle_at_72%_0%,rgba(217,140,58,0.08),transparent_24%),linear-gradient(135deg,rgba(16,15,19,0.94),rgba(6,6,9,0.92))] p-5 shadow-2xl shadow-amber-950/20 sm:p-6">
       <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-ember-300/70 to-transparent" />
 
       <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start">
@@ -87,6 +83,7 @@ export function TowerFocusCard({
           className="min-h-16 w-full rounded-2xl text-[1.05rem] shadow-lg shadow-amber-950/30 sm:text-lg"
           onClick={onChallenge}
           disabled={!canChallenge}
+          data-audio-id="ui_confirm"
         >
           <DoorOpen size={22} /> ท้าทายชั้นถัดไป
         </Button>

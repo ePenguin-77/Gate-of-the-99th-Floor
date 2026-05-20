@@ -1,4 +1,5 @@
 import { Button } from "../Button";
+import { ResourceCard, resourceHelp } from "./ResourceCard";
 import { getDominantPaths } from "../../game/pathAffinity";
 import { survivalLabels } from "../../game/labels";
 import type { ReactNode } from "react";
@@ -40,10 +41,38 @@ export function HubStatusStrip({ character, playerProfile, riskAdvice, onCharact
 
       <StatusCard title="ทรัพยากร">
         <div className="grid grid-cols-2 gap-2">
-          <ResourceChip label="ทอง" value={character.gold} />
-          <ResourceChip label="อาหาร" value={character.food} />
-          <ResourceChip label="วิญญาณที่สูญหาย" value={playerProfile.fallenSouls} />
-          <ResourceChip label="ตราหนี้ชีวิต" value={playerProfile.lifeDebtMarks} />
+          <ResourceCard
+            label="ทอง"
+            value={character.gold}
+            tone="gold"
+            helpTitle={resourceHelp.gold.title}
+            helpText={resourceHelp.gold.text}
+            helpNote={resourceHelp.gold.note}
+          />
+          <ResourceCard
+            label="อาหาร"
+            value={character.food}
+            tone="food"
+            helpTitle={resourceHelp.food.title}
+            helpText={resourceHelp.food.text}
+            helpNote={resourceHelp.food.note}
+          />
+          <ResourceCard
+            label="วิญญาณที่สูญหาย"
+            value={playerProfile.fallenSouls}
+            tone="soul"
+            helpTitle={resourceHelp.souls.title}
+            helpText={resourceHelp.souls.text}
+            helpNote={resourceHelp.souls.note}
+          />
+          <ResourceCard
+            label="ตราหนี้ชีวิต"
+            value={playerProfile.lifeDebtMarks}
+            tone="debt"
+            helpTitle={resourceHelp.debt.title}
+            helpText={resourceHelp.debt.text}
+            helpNote={resourceHelp.debt.note}
+          />
         </div>
       </StatusCard>
 
@@ -75,15 +104,6 @@ function MiniValue({ character, statusKey, kind }: { character: Character; statu
       <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
         <div className={`h-full rounded-full ${kind === "bad" ? getBadBarColor(value) : getGoodBarColor(value)}`} style={{ width: `${value}%` }} />
       </div>
-    </div>
-  );
-}
-
-function ResourceChip({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
-      <p className="text-[0.7rem] leading-4 text-stone-500">{label}</p>
-      <p className="mt-1 font-serif text-xl text-ember-200">{value}</p>
     </div>
   );
 }

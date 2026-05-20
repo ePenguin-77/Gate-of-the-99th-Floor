@@ -128,7 +128,7 @@ export function resolveRareEncounterChoice(gameState: GameState, encounterId: st
   };
 
   const setIntel = (reliability: FloorIntel["reliability"], bonus: number, falseIntel = false) => {
-    const floorNumber = Math.min(10, character.maxFloorCleared + 1);
+    const floorNumber = Math.min(20, character.maxFloorCleared + 1);
     nextState = {
       ...nextState,
       floorIntel: {
@@ -388,7 +388,7 @@ function resolveGenericEncounter(encounter: RareEncounter, resolveKey: string, c
   const setIntel = (bonus: number, isFalse = false) => {
     nextState.floorIntel = {
       id: crypto.randomUUID(),
-      floorNumber: Math.min(10, nextCharacter.maxFloorCleared + 1),
+      floorNumber: Math.min(20, nextCharacter.maxFloorCleared + 1),
       titleTh: isFalse ? "ข้อมูลที่ฟังดูน่าเชื่อถือ" : "เบาะแสจากความผิดปกติ",
       descriptionTh: isFalse ? "ข้อมูลนี้ฟังดูมีเหตุผล แต่หอคอยอาจตั้งใจให้มันมีเหตุผลเกินไป" : "เหตุการณ์ผิดปกติเปิดเผยบางอย่างเกี่ยวกับชั้นถัดไป",
       reliability: isFalse ? "false" : bonus > 6 ? "trusted" : "partial",

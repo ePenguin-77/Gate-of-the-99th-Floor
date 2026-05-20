@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "./components/Button";
+import { GameBackground } from "./components/layout/GameBackground";
 import { Panel } from "./components/Panel";
 import { RareEncounterPopup } from "./components/RareEncounterPopup";
 import { floors } from "./data/floors";
@@ -17,29 +17,68 @@ import { applyShopAction } from "./game/shopSystem";
 import { applySurvivalConsequences } from "./game/survivalConsequences";
 import { applyPressureForActivity, applyPressureForTowerResult, getTowerPressureEffects } from "./game/towerPressure";
 import { forceRareEncounter, maybeTriggerRareEncounter, resolveRareEncounterChoice } from "./game/rareEncounterSystem";
-import { CharacterCreationScreen } from "./screens/CharacterCreationScreen";
-import { CharacterScreen } from "./screens/CharacterScreen";
-import { DeathScreen } from "./screens/DeathScreen";
-import { EventResultScreen } from "./screens/EventResultScreen";
-import { Floor10FinaleScreen } from "./screens/Floor10FinaleScreen";
 import { HubScreen } from "./screens/HubScreen";
-import { InventoryScreen } from "./screens/InventoryScreen";
-import { JournalScreen } from "./screens/JournalScreen";
-import { NpcScreen } from "./screens/NpcScreen";
 import { StartScreen } from "./screens/StartScreen";
-import { TowerEncounterScreen } from "./screens/TowerEncounterScreen";
-import { AdvancedClassChoiceScreen } from "./screens/AdvancedClassChoiceScreen";
 import type { ActivityType, AdvancedClass, Character, DeathRecord, DivineActionId, EncounterDecisionId, EncounterMidpointOutcome, FloorDefinition, FloorResult, GameState, HubEventPrompt, Memory, PlayerProfile, ScreenId, ShopActionId } from "./types/game";
 import { applyHubEventChoice, maybeCreateHubEvent } from "./game/hubEvents";
 import { adjustNpcRelationship, getDailyNpcLine, getNpcMemorialText, getNpcServiceCostMultiplier, getNpcServiceNarrative, unlockNpc } from "./game/npcSystem";
 import { applyAdvancedClass, applyAdvancedClassObject, getEligibleAdvancedClasses, getFallbackAdvancedClass, getNearAdvancedClasses, type NearAdvancedClass } from "./game/advancedClassSystem";
 import { applyPathChangesFromEvent, formatPathChanges } from "./game/pathAffinity";
 import { equipItem, removeItem, unequipItem, useItem } from "./game/inventorySystem";
+import { playAmbience, playDivineActionSound, playMusic, playSfx, playUiSound, stopAllAudio } from "./game/audioSystem";
+import type { UiSoundId } from "./game/audioRegistry";
 
 type PendingAction =
   | { type: "challenge"; revisit: boolean; title: string; message: string }
   | { type: "train"; title: string; message: string }
   | { type: "gather"; title: string; message: string };
+
+const MAX_TOWER_FLOOR = 20;
+
+const CharacterCreationScreen = lazy(() => import("./screens/CharacterCreationScreen").then((module) => ({ default: module.CharacterCreationScreen })));
+const CharacterScreen = lazy(() => import("./screens/CharacterScreen").then((module) => ({ default: module.CharacterScreen })));
+const DeathScreen = lazy(() => import("./screens/DeathScreen").then((module) => ({ default: module.DeathScreen })));
+const EventResultScreen = lazy(() => import("./screens/EventResultScreen").then((module) => ({ default: module.EventResultScreen })));
+const Floor10FinaleScreen = lazy(() => import("./screens/Floor10FinaleScreen").then((module) => ({ default: module.Floor10FinaleScreen })));
+const Floor20FinaleScreen = lazy(() => import("./screens/Floor20FinaleScreen").then((module) => ({ default: module.Floor20FinaleScreen })));
+const Floor20ResultScreen = lazy(() => import("./screens/Floor20ResultScreen").then((module) => ({ default: module.Floor20ResultScreen })));
+const InventoryScreen = lazy(() => import("./screens/InventoryScreen").then((module) => ({ default: module.InventoryScreen })));
+const JournalScreen = lazy(() => import("./screens/JournalScreen").then((module) => ({ default: module.JournalScreen })));
+const NpcScreen = lazy(() => import("./screens/NpcScreen").then((module) => ({ default: module.NpcScreen })));
+const SettingsScreen = lazy(() => import("./screens/SettingsScreen").then((module) => ({ default: module.SettingsScreen })));
+const TowerEncounterScreen = lazy(() => import("./screens/TowerEncounterScreen").then((module) => ({ default: module.TowerEncounterScreen })));
+const AdvancedClassChoiceScreen = lazy(() => import("./screens/AdvancedClassChoiceScreen").then((module) => ({ default: module.AdvancedClassChoiceScreen })));
+
+function addAct2Intro(gameState: GameState): GameState {
+  return addMemory(
+    addJournalEntry(gameState, {
+      floor: 11,
+      title: "ประตูแรกเปิดออกแล้ว",
+      text:
+        "ประตูแรกเปิดออกแล้ว แต่สิ่งที่รออยู่หลังประตูไม่ใช่บันไดขึ้นชั้นต่อไป มันคือเมืองทั้งเมือง ถนนไร้ผู้คนทอดยาวใต้เพดานหอคอย หน้าต่างทุกบานมืดสนิท และป้ายเก่าหน้าประตูเมืองเขียนไว้เพียงว่า “ยินดีต้อนรับ ผู้ที่ยังไม่ตาย”",
+    }),
+    {
+      title: "เมืองร้างเหนือประตูแรก",
+      description: "หลังผ่านประตูแรก ผู้หลงทางพบเมืองร้างที่ไม่ควรมีอยู่ในหอคอย มันเงียบเกินกว่าจะเป็นที่พัก และเป็นระเบียบเกินกว่าจะเป็นซากปรักหักพัง",
+      type: "growth",
+      intensity: 70,
+      tags: ["act2", "abandoned_city", "first_gate", "mystery"],
+      floorNumber: 11,
+      dayCreated: gameState.day,
+      effects: { scoreModifier: 1, survival: { hope: 1 } },
+    },
+  );
+}
+
+function ScreenLoading() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-ash-950 px-5 text-stone-200">
+      <Panel className="border-ember-300/30 bg-black/40 p-6 text-center">
+        <p className="font-serif text-2xl text-ember-100">กำลังเปิดบันทึกของหอคอย...</p>
+      </Panel>
+    </main>
+  );
+}
 
 export default function App() {
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile>(() => loadPlayerProfile());
@@ -58,10 +97,59 @@ export default function App() {
   const [isRevisit, setIsRevisit] = useState(false);
   const [saveAvailable, setSaveAvailable] = useState(false);
   const [inventoryMessage, setInventoryMessage] = useState<string | undefined>();
+  const [audioReady, setAudioReady] = useState(false);
 
   useEffect(() => {
     setSaveAvailable(hasSave());
   }, []);
+
+  useEffect(() => {
+    function onGlobalButtonClick(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest("button");
+      if (!button || button.disabled || button.dataset.audioSilent === "true") return;
+      playUiSound((button.dataset.audioId as UiSoundId | undefined) ?? "ui_click");
+    }
+    document.addEventListener("click", onGlobalButtonClick, true);
+    return () => document.removeEventListener("click", onGlobalButtonClick, true);
+  }, []);
+
+  useEffect(() => {
+    function markAudioReady() {
+      if (import.meta.env.DEV) console.log("[audio] Audio unlocked");
+      setAudioReady(true);
+    }
+    window.addEventListener("pointerdown", markAudioReady, { once: true });
+    window.addEventListener("keydown", markAudioReady, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", markAudioReady);
+      window.removeEventListener("keydown", markAudioReady);
+      stopAllAudio();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!audioReady) return;
+    if (state.activeRareEncounter) {
+      playSfx("sfx_rare_encounter");
+      playAmbience("ambience_rare");
+      return;
+    }
+    if (screen === "start") {
+      playAmbience("ambience_title");
+      playMusic("music_title");
+      return;
+    }
+    if (screen === "tower") {
+      playAmbience("ambience_tower");
+      if (activeFloor?.floor === 10) playMusic("music_floor10");
+      else if (activeFloor?.floor === 20) playMusic("music_floor20");
+      else playMusic("music_tower_tension");
+      return;
+    }
+    playAmbience("ambience_hub");
+    playMusic("music_hub");
+  }, [activeFloor?.floor, audioReady, screen, state.activeRareEncounter]);
 
   useEffect(() => {
     if (state.character && !state.ended) {
@@ -163,12 +251,35 @@ export default function App() {
   function openFloor(revisit: boolean) {
     if (!state.character) return;
     if (state.character.survival.fatigue >= 100) return;
-    const floorNumber = revisit ? Math.max(1, state.character.maxFloorCleared) : Math.min(10, state.character.maxFloorCleared + 1);
+    const floorNumber = revisit ? Math.max(1, state.character.maxFloorCleared) : Math.min(MAX_TOWER_FLOOR, state.character.maxFloorCleared + 1);
+    if (!revisit && floorNumber >= 11 && !state.character.classEvolutionResolved) {
+      const markedCharacter = {
+        ...state.character,
+        hasClearedFloor10: state.character.hasClearedFloor10 || state.character.maxFloorCleared >= 10,
+        pendingAdvancedClassChoice: true,
+      };
+      setAdvancedClassOptions(getEligibleAdvancedClasses(markedCharacter));
+      setNearAdvancedClassOptions(getNearAdvancedClasses(markedCharacter, 2));
+      setFallbackAdvancedClass(getFallbackAdvancedClass(markedCharacter));
+      setState({
+        ...state,
+        character: markedCharacter,
+        lastActionResult: {
+          activityName: "เมืองร้างเหนือประตูแรก",
+          narrative: "ชะตายังไม่เปลี่ยนรูป ผู้หลงทางยังไม่พร้อมก้าวเข้าสู่เมืองร้างเหนือประตูแรก",
+          deltas: [],
+          day: state.day,
+        },
+      });
+      setScreen("advancedClass");
+      return;
+    }
     const floor = floors.find((item) => item.floor === floorNumber);
     const estimate = floor
       ? estimateTowerAttempt(state.character, floor, "whisper", revisit, state.preparationBuff, state.floorIntel, state.difficultyMode, state.divineStrain ?? 0, state.towerPressure ?? 0)
       : null;
     if (estimate && estimate.chance < 25) {
+      playUiSound("ui_warning");
       setPendingAction({
         type: "challenge",
         revisit,
@@ -183,6 +294,7 @@ export default function App() {
       state.character.survival.injury >= 90 ||
       state.character.survival.sickness >= 90
     ) {
+      playUiSound("ui_warning");
       setPendingAction({
         type: "challenge",
         revisit,
@@ -196,9 +308,14 @@ export default function App() {
 
   function openFloorConfirmed(revisit: boolean) {
     if (!state.character) return;
-    const floorNumber = revisit ? Math.max(1, state.character.maxFloorCleared) : Math.min(10, state.character.maxFloorCleared + 1);
+    const floorNumber = revisit ? Math.max(1, state.character.maxFloorCleared) : Math.min(MAX_TOWER_FLOOR, state.character.maxFloorCleared + 1);
+    if (!revisit && floorNumber >= 11 && !state.character.classEvolutionResolved) {
+      setScreen("advancedClass");
+      return;
+    }
     const floor = floors.find((item) => item.floor === floorNumber);
     if (!floor) return;
+    playSfx("sfx_gate_open");
     setActiveFloor(floor);
     setActiveResult(null);
     setIsRevisit(revisit);
@@ -207,6 +324,7 @@ export default function App() {
 
   function resolveActiveFloor(action: DivineActionId, decision: EncounterDecisionId = "continue", midpoint?: EncounterMidpointOutcome) {
     if (!state.character || !activeFloor) return;
+    playDivineActionSound(action);
     const beforeCharacter = state.character;
     const resolved = resolveFloor(
       state.character,
@@ -221,6 +339,11 @@ export default function App() {
       {
         decision,
         midpointModifier: midpoint?.modifier,
+        midpointTags: midpoint?.tags,
+      },
+      {
+        npcs: state.npcs,
+        lifeDebtMarks: playerProfile.lifeDebtMarks,
       },
     );
     setActiveResult(resolved.result);
@@ -242,6 +365,28 @@ export default function App() {
       },
     );
     nextState = applyPressureForTowerResult(nextState, resolved.result.level, activeFloor.floor, isRevisit);
+    if (activeFloor.floor === 20 && midpoint?.id.includes("placeKey")) {
+      nextState = removeItem(nextState, "key_without_keyhole", 1);
+      nextState = {
+        ...nextState,
+        towerPressure: Math.max(0, (nextState.towerPressure ?? 0) - 4),
+      };
+      nextState = addMemory(nextState, {
+        title: "กุญแจที่เปิดหน้าสมุด",
+        description: "กุญแจที่ไม่มีรูไม่ได้เปิดประตู แต่มันเปิดช่องว่างในบันทึกของหอคอย และทำให้ชื่อของเขาหลุดจากหมึกบางส่วน",
+        type: "growth",
+        intensity: 56,
+        tags: ["floor20", "key", "record", "anomaly"],
+        floorNumber: 20,
+        dayCreated: nextState.day,
+        effects: { scoreModifier: 1 },
+      });
+      nextState = addJournalEntry(nextState, {
+        floor: 20,
+        title: "กุญแจบนหน้าสมุด",
+        text: "กุญแจที่ไม่มีรูถูกวางลงบนบันทึก และถ้อยคำบางส่วนของหอคอยก็เปิดออกเหมือนบานประตูที่ไม่ควรมีอยู่",
+      });
+    }
 
     if (resolved.result.memoryCreated) {
       nextState = addMemory(nextState, resolved.result.memoryCreated);
@@ -361,6 +506,7 @@ export default function App() {
     }
     stateWithResult = withRareEncounterRoll(stateWithResult, isRevisit ? "revisitPreviousFloor" : "challengeNextFloor");
     setState(stateWithResult);
+    playTowerResultSound(resolved.result.level);
     if (consequence.death) {
       handleDeath(consequence.death);
       return;
@@ -411,6 +557,7 @@ export default function App() {
     );
     const consequence = applySurvivalConsequences(nextState, "tower");
     setActiveResult(result);
+    playSfx("sfx_failure");
     setState(withRareEncounterRoll({
       ...consequence.state,
       lastActionResult: nextState.lastActionResult,
@@ -466,6 +613,7 @@ export default function App() {
     );
     const consequence = applySurvivalConsequences(nextState, "tower");
     setActiveResult(result);
+    playSfx("sfx_failure");
     setState(withRareEncounterRoll({
       ...consequence.state,
       lastActionResult: nextState.lastActionResult,
@@ -514,6 +662,7 @@ export default function App() {
     if (!state.character) return;
     if (type === "train" && (state.character.survival.hunger >= 100 || state.character.survival.fatigue >= 100)) return;
     if (type === "train" && state.character.survival.fatigue >= 90) {
+      playUiSound("ui_warning");
       setState({
         ...state,
         lastActionResult: {
@@ -526,6 +675,7 @@ export default function App() {
       return;
     }
     if (type === "train" && (state.character.survival.fatigue >= 70 || state.character.survival.injury >= 60)) {
+      playUiSound("ui_warning");
       setPendingAction({
         type: "train",
         title: "ยืนยันการฝึกฝน",
@@ -534,6 +684,7 @@ export default function App() {
       return;
     }
     if (type === "gather" && state.character.survival.fatigue >= 80) {
+      playUiSound("ui_warning");
       setPendingAction({
         type: "gather",
         title: "ยืนยันการออกหาเสบียง",
@@ -590,6 +741,7 @@ export default function App() {
           day: state.day,
         },
       });
+      playSfx("sfx_failure");
       return;
     }
     const npcService = getNpcServiceNarrative(state, actionId);
@@ -617,6 +769,7 @@ export default function App() {
           }
         : consequence.state;
     const rareAction = actionId === "inn-rest" ? "innRest" : actionId === "trainer" ? "paidTraining" : "marketPurchase";
+    playSfx("sfx_coin");
     setStateWithPossibleHubEvent(withRareEncounterRoll(attachPathNotes(stateWithResult, { type: "market", outcome: actionId }), rareAction));
     if (consequence.death) handleDeath(consequence.death);
   }
@@ -699,6 +852,7 @@ export default function App() {
   }
 
   function openJournal() {
+    playSfx("sfx_journal");
     if (state.character && !state.activeRareEncounter) {
       setState(withRareEncounterRoll(state, "openJournal"));
     }
@@ -719,6 +873,7 @@ export default function App() {
 
   function useInventoryItem(itemId: string) {
     const result = useItem(state, itemId, { inTower: false });
+    playSfx("sfx_item_use");
     setInventoryMessage(result.message);
     setState(result.state);
   }
@@ -792,7 +947,8 @@ export default function App() {
     setNearAdvancedClassOptions([]);
     setFallbackAdvancedClass(null);
     setShouldOfferAdvancedClass(false);
-    setState(nextState);
+    setState(addAct2Intro(nextState));
+    playSfx("sfx_success");
     setScreen("hub");
   }
 
@@ -818,10 +974,13 @@ export default function App() {
     setScreen("hub");
   }
 
-  function withPendingAction(content: ReactNode) {
+  function withPendingAction(content: ReactNode, showGameBackground = screen !== "start") {
     return (
       <>
-        {content}
+        {showGameBackground ? <GameBackground /> : null}
+        <div className={showGameBackground ? "game-content-layer" : undefined}>
+          <Suspense fallback={<ScreenLoading />}>{content}</Suspense>
+        </div>
         {showRareEncounterDebug && state.character && !state.activeRareEncounter ? (
           <button
             type="button"
@@ -875,7 +1034,7 @@ export default function App() {
   }
 
   if (screen === "start") {
-    return withPendingAction(<StartScreen canContinue={saveAvailable} onNewGame={beginNewGame} onContinue={continueGame} onReset={clearSave} />);
+    return withPendingAction(<StartScreen canContinue={saveAvailable} onNewGame={beginNewGame} onContinue={continueGame} onReset={clearSave} />, false);
   }
 
   if (screen === "creation") {
@@ -891,7 +1050,7 @@ export default function App() {
   }
 
   if (!state.character) {
-    return withPendingAction(<StartScreen canContinue={saveAvailable} onNewGame={beginNewGame} onContinue={continueGame} onReset={clearSave} />);
+    return withPendingAction(<StartScreen canContinue={saveAvailable} onNewGame={beginNewGame} onContinue={continueGame} onReset={clearSave} />, false);
   }
 
   if (screen === "character") return withPendingAction(<CharacterScreen character={state.character} onBack={() => setScreen("hub")} />);
@@ -910,6 +1069,7 @@ export default function App() {
   }
   if (screen === "journal") return withPendingAction(<JournalScreen entries={state.journal} onBack={() => setScreen("hub")} />);
   if (screen === "npc") return withPendingAction(<NpcScreen npcs={state.npcs} onBack={() => setScreen("hub")} />);
+  if (screen === "settings") return withPendingAction(<SettingsScreen onBack={() => setScreen("hub")} />);
   if (screen === "advancedClass") {
     return withPendingAction(
       <AdvancedClassChoiceScreen
@@ -940,6 +1100,22 @@ export default function App() {
         />,
       );
     }
+    if (activeFloor.floor === 20 && !isRevisit) {
+      return withPendingAction(
+        <Floor20FinaleScreen
+          character={state.character}
+          floor={activeFloor}
+          revisit={isRevisit}
+          preparationBuff={state.preparationBuff}
+          floorIntel={state.floorIntel}
+          difficultyMode={state.difficultyMode}
+          divineStrain={state.divineStrain}
+          towerPressure={state.towerPressure ?? 0}
+          onResolve={resolveActiveFloor}
+          onReturn={() => setScreen("hub")}
+        />,
+      );
+    }
     return withPendingAction(
       <TowerEncounterScreen
         character={state.character}
@@ -950,6 +1126,8 @@ export default function App() {
         difficultyMode={state.difficultyMode}
         divineStrain={state.divineStrain}
         towerPressure={state.towerPressure ?? 0}
+        npcs={state.npcs}
+        lifeDebtMarks={playerProfile.lifeDebtMarks}
         onResolve={resolveActiveFloor}
         onRetreat={retreatFromEncounter}
         onReturn={() => setScreen("hub")}
@@ -957,6 +1135,9 @@ export default function App() {
     );
   }
   if (screen === "result" && activeResult) {
+    if (activeResult.floor === 20) {
+      return withPendingAction(<Floor20ResultScreen result={activeResult} character={state.character} onReturn={returnToHub} />);
+    }
     return withPendingAction(<EventResultScreen result={activeResult} onReturn={returnToHub} />);
   }
 
@@ -986,6 +1167,7 @@ export default function App() {
       onInventory={openInventory}
       onJournal={openJournal}
       onNpc={openNpcScreen}
+      onSettings={() => setScreen("settings")}
       serviceCostMultipliers={{
         "inn-rest": getNpcServiceCostMultiplier(state, "innRest"),
         "buy-bandage": getNpcServiceCostMultiplier(state, "treatInjury"),
@@ -1005,4 +1187,10 @@ function getHubWarnings(character: Character): string[] {
   if (character.survival.injury >= 90) warnings.push("บาดแผลของเขาอยู่ในระดับวิกฤต การฝืนขึ้นหอคอยอาจทำให้เสียชีวิต");
   if (character.survival.sickness >= 90) warnings.push("อาการป่วยของเขาเข้าสู่ระดับวิกฤต ควรซื้อยาหรือพักฟื้นทันที");
   return warnings;
+}
+
+function playTowerResultSound(level: FloorResult["level"]) {
+  if (level === "greatSuccess" || level === "success") playSfx("sfx_success");
+  else if (level === "costlySuccess" || level === "failure") playSfx("sfx_failure");
+  else playSfx("sfx_critical");
 }

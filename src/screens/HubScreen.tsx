@@ -1,4 +1,4 @@
-import { Backpack, BookOpen, Dumbbell, HeartPulse, Leaf, Map, Moon, PackagePlus, Search, Shield, User, Users } from "lucide-react";
+import { Backpack, BookOpen, Dumbbell, HeartPulse, Leaf, Map, Moon, PackagePlus, Search, Settings, Shield, User, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button";
@@ -55,6 +55,7 @@ interface Props {
   onInventory: () => void;
   onJournal: () => void;
   onNpc: () => void;
+  onSettings: () => void;
 }
 
 export function HubScreen({
@@ -83,11 +84,13 @@ export function HubScreen({
   onInventory,
   onJournal,
   onNpc,
+  onSettings,
 }: Props) {
   const [activeTab, setActiveTab] = useState<HubTabId>("overview");
-  const nextFloorNumber = Math.min(10, character.maxFloorCleared + 1);
+  const nextFloorNumber = Math.min(20, character.maxFloorCleared + 1);
   const nextFloor = floors.find((floor) => floor.floor === nextFloorNumber);
-  const prototypeCleared = character.maxFloorCleared >= 10;
+  const prototypeCleared = character.maxFloorCleared >= 20;
+  const inAct2 = nextFloorNumber >= 11 || character.maxFloorCleared >= 10;
   const canChallenge = !prototypeCleared && character.survival.fatigue < 100;
   const canTrain = character.survival.hunger < 100 && character.survival.fatigue < 90;
   const estimate = nextFloor
@@ -101,12 +104,17 @@ export function HubScreen({
   const riskAdvice = getRiskAdvice(character, estimate?.chance, floorIntel, usefulItems.length);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_50%_-12%,rgba(217,140,58,0.16),transparent_34%),linear-gradient(180deg,#0c0b10,#09090b)] pb-24 text-stone-100 md:pb-8">
+    <main className="hub-screen min-h-screen overflow-x-hidden bg-transparent pb-24 text-stone-100 md:pb-8">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/65 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex w-[min(100%-2rem,1560px)] flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-serif text-lg leading-tight text-stone-50 sm:text-xl">Gate of the 99th Floor</p>
-            <p className="text-xs tracking-wide text-ember-300">ประตูแห่งชั้นที่ 99</p>
+          <div className="hub-logo min-w-0">
+            <p className="hub-logo-title">
+              <span>GATE OF THE</span>
+              <span>
+                99<span className="hub-logo-ordinal">TH</span> FLOOR
+              </span>
+            </p>
+            <p className="hub-logo-subtitle">ประตูแห่งชั้นที่ 99</p>
           </div>
           <nav className="flex flex-wrap gap-2">
             <Button onClick={onCharacter} className="min-h-9 rounded-xl px-3 py-1.5 text-xs">
@@ -120,6 +128,9 @@ export function HubScreen({
             </Button>
             <Button onClick={onJournal} className="min-h-9 rounded-xl px-3 py-1.5 text-xs">
               <BookOpen size={15} /> บันทึก
+            </Button>
+            <Button onClick={onSettings} className="min-h-9 rounded-xl px-3 py-1.5 text-xs">
+              <Settings size={15} /> ตั้งค่า
             </Button>
           </nav>
         </div>
@@ -146,6 +157,13 @@ export function HubScreen({
           onPrepareGear={() => onShopAction("prepare-gear")}
           onRevisit={onRevisit}
         />
+
+        {inAct2 ? (
+          <Panel className="rounded-2xl border-amber-300/20 bg-amber-950/10 p-4 text-sm leading-7 text-stone-300">
+            <p className="font-serif text-xl text-amber-200">เมืองร้างเหนือประตูแรก</p>
+            <p className="mt-1">เมืองพักพิงยังอยู่เบื้องล่าง แต่หลังประตูแรก หอคอยเริ่มมีเมืองของมันเอง</p>
+          </Panel>
+        ) : null}
 
         <HubStatusStrip character={character} playerProfile={playerProfile} riskAdvice={riskAdvice} onCharacter={onCharacter} />
 

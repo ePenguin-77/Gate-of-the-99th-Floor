@@ -1,5 +1,6 @@
 import { Button } from "../Button";
 import { Panel } from "../Panel";
+import { ResourceCard, resourceHelp } from "./ResourceCard";
 import { survivalLabels } from "../../game/labels";
 import { getDominantPaths } from "../../game/pathAffinity";
 import type { Character, PlayerProfile, SurvivalKey } from "../../types/game";
@@ -30,15 +31,15 @@ export function CharacterStatusSummary({ character, playerProfile, onCharacter }
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          <SnapshotChip label="ชั้นปัจจุบัน" value={Math.min(10, character.maxFloorCleared + 1)} />
+          <SnapshotChip label="ชั้นปัจจุบัน" value={Math.min(20, character.maxFloorCleared + 1)} />
           <SnapshotChip label="สภาพ" value={getCompactCondition(character)} />
-          <SnapshotChip label="อาหาร" value={character.food} />
-          <SnapshotChip label="ทอง" value={character.gold} />
+          <ResourceCard label="อาหาร" value={character.food} tone="food" helpTitle={resourceHelp.food.title} helpText={resourceHelp.food.text} helpNote={resourceHelp.food.note} />
+          <ResourceCard label="ทอง" value={character.gold} tone="gold" helpTitle={resourceHelp.gold.title} helpText={resourceHelp.gold.text} helpNote={resourceHelp.gold.note} />
         </div>
         <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
           <SnapshotChip label="เส้นทางเด่น" value={dominantPath && dominantPath.value > 0 ? dominantPath.label : "ยังไม่ชัดเจน"} />
-          <SnapshotChip label="วิญญาณที่สูญหาย" value={playerProfile.fallenSouls} />
-          <SnapshotChip label="ตราหนี้ชีวิต" value={playerProfile.lifeDebtMarks} />
+          <ResourceCard label="วิญญาณที่สูญหาย" value={playerProfile.fallenSouls} tone="soul" helpTitle={resourceHelp.souls.title} helpText={resourceHelp.souls.text} helpNote={resourceHelp.souls.note} />
+          <ResourceCard label="ตราหนี้ชีวิต" value={playerProfile.lifeDebtMarks} tone="debt" helpTitle={resourceHelp.debt.title} helpText={resourceHelp.debt.text} helpNote={resourceHelp.debt.note} />
         </div>
       </Panel>
 
