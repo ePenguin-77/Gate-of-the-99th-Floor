@@ -645,13 +645,18 @@ export const floors: FloorDefinition[] = [...baseFloors, ...act2Floors].map((flo
   rewards: {
     ...floor.rewards,
     gold:
-      floor.floor <= 3
-        ? Math.min(floor.rewards.gold, 4)
-        : floor.floor <= 6
+      floor.floor === 1
+        ? 8
+        : floor.floor === 2
+          ? 10
+          : floor.floor === 3
+            ? 11
+            : floor.floor <= 6
           ? Math.min(Math.max(floor.rewards.gold, 3), 7)
           : floor.floor <= 9
             ? Math.min(Math.max(floor.rewards.gold, 5), 10)
             : floor.rewards.gold,
+    food: floor.floor <= 3 ? 1 : floor.rewards.food,
   },
   ...floorIdentity[floor.floor],
 }));

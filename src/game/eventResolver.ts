@@ -35,6 +35,12 @@ import type {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const chance = (percent: number) => Math.random() * 100 < percent;
 
+function getTowerAttemptSurvivalCost(floorNumber: number, revisit: boolean): { hunger: number; fatigue: number } {
+  if (floorNumber <= 3) return revisit ? { hunger: 7, fatigue: 12 } : { hunger: 10, fatigue: 16 };
+  if (floorNumber <= 10) return revisit ? { hunger: 10, fatigue: 16 } : { hunger: 14, fatigue: 22 };
+  return revisit ? { hunger: 12, fatigue: 18 + floorNumber } : { hunger: 16, fatigue: 24 + floorNumber };
+}
+
 interface EstimateDetail {
   label: string;
   value: number;
@@ -172,6 +178,31 @@ function getAct2StatusPenaltyDetails(character: Character, floor: FloorDefinitio
     details.push({ label, value });
     reasons.push(reason);
   };
+
+  if (floor.floor <= 3) {
+    if (hunger >= 95) add("ความหิวขั้นวิกฤต", -18, "ความหิวแทบตัดการตัดสินใจของเขาออกจากร่างกาย");
+    else if (hunger >= 80) add("ความหิวรุนแรง", -10, "ความหิวเริ่มกลืนสมาธิ");
+    else if (hunger >= 60) add("ความหิวสูง", -5, "ความหิวทำให้เขาตัดสินใจช้าลง");
+    else if (hunger >= 40) add("เริ่มหิว", -2, "ความหิวเริ่มรบกวนสมาธิ");
+
+    if (fatigue >= 95) add("ความเหนื่อยล้าขั้นวิกฤต", -22, "ความเหนื่อยล้าอาจทำให้เขาทรุดลงกลางทาง");
+    else if (fatigue >= 80) add("อ่อนล้าหนัก", -12, "ร่างกายตอบสนองช้าลงและเสี่ยงบาดเจ็บ");
+    else if (fatigue >= 60) add("เหนื่อยล้าสูง", -6, "ความเหนื่อยล้าทำให้การตอบสนองช้าลง");
+    else if (fatigue >= 40) add("เริ่มเหนื่อย", -2, "ความเหนื่อยล้าสะสมเริ่มกดร่างกาย");
+
+    if (injury >= 90) add("บาดแผลวิกฤต", -28, "บาดแผลพร้อมเปิดซ้ำหากฝืนขึ้นหอคอย");
+    else if (injury >= 70) add("บาดเจ็บหนัก", -20, "บาดแผลหนักทำให้ทุกการเคลื่อนไหวมีราคา");
+    else if (injury >= 40) add("บาดเจ็บ", floor.challengeType === "combat" || floor.challengeType === "boss" ? -20 : -8, "บาดแผลลดโอกาสรอด โดยเฉพาะการปะทะ");
+    else if (injury >= 20 && (floor.challengeType === "combat" || floor.challengeType === "boss")) add("บาดแผลรบกวนการต่อสู้", -5, "บาดแผลทำให้การปะทะเสียเปรียบ");
+
+    if (sickness >= 90) add("ป่วยขั้นวิกฤต", -25, "ไข้และลมหายใจขาดห้วงทำให้หอคอยอันตรายขึ้นมาก");
+    else if (sickness >= 70) add("ป่วยหนัก", -18, "อาการป่วยกัดกินทั้งแรงกายและความหวัง");
+    else if (sickness >= 40) add("เริ่มป่วย", -8, "อาการป่วยทำให้เหนื่อยง่ายและเสียสมาธิ");
+
+    if ((floor.tags ?? []).includes("trap")) reasons.push("ชั้นนี้มีความเสี่ยงจากกับดักและการซุ่มโจมตี");
+    if ((floor.tags ?? []).includes("darkness")) reasons.push("ความมืดทำให้การประเมินอันตรายยากขึ้น");
+    return { total, details, reasons };
+  }
   if (hunger >= 95) add("บทลงโทษความหิวในเมืองร้าง", -5, "เมืองร้างลงโทษความหิวรุนแรงกว่าช่วงก่อนประตูแรก");
   else if (hunger >= 80) add("บทลงโทษความหิวในเมืองร้าง", -3, "ความหิวทำให้ภาพลวงในเมืองร้างน่าเชื่อขึ้น");
   else if (hunger >= 60) add("บทลงโทษความหิวในเมืองร้าง", -2, "ความหิวเริ่มทำให้ตัดสินใจพลาดในเมืองร้าง");
@@ -315,6 +346,31 @@ function statusPenaltyDetails(character: Character, floor: FloorDefinition): { t
     reasons.push(reason);
   };
 
+  if (floor.floor <= 3) {
+    if (hunger >= 95) add("ความหิวขั้นวิกฤต", -18, "ความหิวแทบตัดการตัดสินใจของเขาออกจากร่างกาย");
+    else if (hunger >= 80) add("ความหิวรุนแรง", -10, "ความหิวเริ่มกลืนสมาธิ");
+    else if (hunger >= 60) add("ความหิวสูง", -5, "ความหิวทำให้เขาตัดสินใจช้าลง");
+    else if (hunger >= 40) add("เริ่มหิว", -2, "ความหิวเริ่มรบกวนสมาธิ");
+
+    if (fatigue >= 95) add("ความเหนื่อยล้าขั้นวิกฤต", -22, "ความเหนื่อยล้าอาจทำให้เขาทรุดลงกลางทาง");
+    else if (fatigue >= 80) add("อ่อนล้าหนัก", -12, "ร่างกายตอบสนองช้าลงและเสี่ยงบาดเจ็บ");
+    else if (fatigue >= 60) add("เหนื่อยล้าสูง", -6, "ความเหนื่อยล้าทำให้การตอบสนองช้าลง");
+    else if (fatigue >= 40) add("เริ่มเหนื่อย", -2, "ความเหนื่อยล้าสะสมเริ่มกดร่างกาย");
+
+    if (injury >= 90) add("บาดแผลวิกฤต", -28, "บาดแผลพร้อมเปิดซ้ำหากฝืนขึ้นหอคอย");
+    else if (injury >= 70) add("บาดเจ็บหนัก", -20, "บาดแผลหนักทำให้ทุกการเคลื่อนไหวมีราคา");
+    else if (injury >= 40) add("บาดเจ็บ", floor.challengeType === "combat" || floor.challengeType === "boss" ? -20 : -8, "บาดแผลลดโอกาสรอด โดยเฉพาะการปะทะ");
+    else if (injury >= 20 && (floor.challengeType === "combat" || floor.challengeType === "boss")) add("บาดแผลรบกวนการต่อสู้", -5, "บาดแผลทำให้การปะทะเสียเปรียบ");
+
+    if (sickness >= 90) add("ป่วยขั้นวิกฤต", -25, "ไข้และลมหายใจขาดห้วงทำให้หอคอยอันตรายขึ้นมาก");
+    else if (sickness >= 70) add("ป่วยหนัก", -18, "อาการป่วยกัดกินทั้งแรงกายและความหวัง");
+    else if (sickness >= 40) add("เริ่มป่วย", -8, "อาการป่วยทำให้เหนื่อยง่ายและเสียสมาธิ");
+
+    if ((floor.tags ?? []).includes("trap")) reasons.push("ชั้นนี้มีความเสี่ยงจากกับดักและการซุ่มโจมตี");
+    if ((floor.tags ?? []).includes("darkness")) reasons.push("ความมืดทำให้การประเมินอันตรายยากขึ้น");
+    return { total, details, reasons };
+  }
+
   if (hunger >= 95) add("ความหิวขั้นวิกฤต", -25, "ความหิวแทบตัดการตัดสินใจของเขาออกจากร่างกาย");
   else if (hunger >= 80) add("ความหิวรุนแรง", -15, "ความหิวเริ่มกลืนสมาธิและเพิ่มโอกาสล้มป่วย");
   else if (hunger >= 60) add("ความหิวสูง", -8, "ความหิวทำให้เขาตัดสินใจช้าลง");
@@ -349,6 +405,9 @@ function floorClamp(floorNumber: number): { min: number; max: number } {
   if (floorNumber >= 10) return { min: 10, max: 60 };
   if (floorNumber >= 7) return { min: 12, max: 65 };
   if (floorNumber >= 4) return { min: 15, max: 70 };
+  if (floorNumber === 1) return { min: 30, max: 75 };
+  if (floorNumber === 2) return { min: 28, max: 72 };
+  if (floorNumber === 3) return { min: 25, max: 70 };
   return { min: 20, max: 75 };
 }
 
@@ -386,6 +445,7 @@ export function estimateTowerAttempt(
   const act2Preparedness = getAct2PreparednessModifier(floor, matchingIntel, preparationBuff, itemEffects, advancedClassSynergy.bonus);
   const act2Hooks = getAct2FloorHooks({ character, floor, towerPressure });
   const floorPressure = floor.floor * 3;
+  const firstFloorGuidanceBonus = floor.floor === 1 && !revisit && character.maxFloorCleared === 0 && towerPressure <= 2 ? 8 : 0;
   const preparedness =
     averageStat * 5 +
     moraleBonus +
@@ -416,6 +476,7 @@ export function estimateTowerAttempt(
     act2Preparedness.successModifier +
     act2FloorModifier.successModifier +
     act2Hooks.successBonus +
+    firstFloorGuidanceBonus +
     settings.successChanceModifier;
   const limits = floorClamp(floor.floor);
   const chance = clamp(Math.round(rawChance), limits.min, limits.max);
@@ -450,6 +511,7 @@ export function estimateTowerAttempt(
         ? [matchingIntel.isFalse ? "ข้อมูลที่ได้มาอาจทำให้ประเมินชั้นนี้ผิดทิศ" : "ข้อมูลที่ได้มาช่วยให้เตรียมรับมือชั้นนี้ดีขึ้น"]
         : []),
       ...(towerPressure >= 8 ? ["ความกดดันของหอคอยกำลังบิดเบือนเส้นทาง"] : []),
+      ...(firstFloorGuidanceBonus > 0 ? ["ความระวังแรกเริ่มช่วยให้เขาไม่ประมาทเกินไป"] : []),
       ...(floor.uniqueMechanicTh ? [floor.uniqueMechanicTh] : []),
       ...(getClassPassiveReason(character, floor, actionId) ? [getClassPassiveReason(character, floor, actionId)!] : []),
       ...(getAdvancedClassReason(character, floor, actionId, towerPressure) ? [getAdvancedClassReason(character, floor, actionId, towerPressure)!] : []),
@@ -680,9 +742,10 @@ export function resolveFloor(
   });
   Object.entries(action.survivalChanges).forEach(([key, value]) => mutateSurvival(nextCharacter, key as SurvivalKey, value ?? 0));
 
-  const baseHunger = revisit ? 12 : 16;
   const sicknessFatigue = nextCharacter.survival.sickness >= 20 ? Math.floor(Math.random() * 6) + 5 : 0;
-  const baseFatigue = (revisit ? 18 : 24) + floor.floor + sicknessFatigue;
+  const attemptCost = getTowerAttemptSurvivalCost(floor.floor, revisit);
+  const baseHunger = attemptCost.hunger;
+  const baseFatigue = attemptCost.fatigue + sicknessFatigue;
   mutateSurvival(nextCharacter, "hunger", baseHunger);
   mutateSurvival(nextCharacter, "fatigue", baseFatigue);
   if (nextCharacter.survival.injury >= 40 && chance(nextCharacter.survival.injury >= 70 ? 35 : 18)) mutateSurvival(nextCharacter, "injury", 5);
@@ -702,7 +765,9 @@ export function resolveFloor(
 
   if (clearFloor) {
     const rewardScale = resolvedLevel === "greatSuccess" ? 1 : resolvedLevel === "success" ? 0.85 : 0.55;
-    nextCharacter.gold += Math.max(0, Math.round(floor.rewards.gold * rewardMultiplier * rewardScale));
+    const rawGoldReward = Math.max(0, Math.round(floor.rewards.gold * rewardMultiplier * rewardScale));
+    const earlyGoldFloor = floor.floor === 1 ? Math.max(rawGoldReward, 5) : floor.floor === 2 ? Math.max(rawGoldReward, 6) : floor.floor === 3 ? Math.max(rawGoldReward, 7) : rawGoldReward;
+    nextCharacter.gold += earlyGoldFloor;
     nextCharacter.food += Math.max(0, Math.round(floor.rewards.food * rewardMultiplier * (resolvedLevel === "costlySuccess" ? 0.5 : 1))) + (nextCharacter.classId === "hunter" && resolvedLevel !== "costlySuccess" ? 1 : 0);
     mutateSurvival(nextCharacter, "morale", resolvedLevel === "greatSuccess" ? 8 : resolvedLevel === "success" ? 4 : -6);
     mutateSurvival(nextCharacter, "hope", resolvedLevel === "greatSuccess" ? 8 : resolvedLevel === "success" ? 4 : 1);

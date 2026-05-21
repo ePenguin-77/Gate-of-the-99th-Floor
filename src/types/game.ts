@@ -278,6 +278,7 @@ export interface RareEncounterChoice {
   riskTh?: string;
   outcomeType: "safe" | "reward" | "risk" | "mixed" | "dangerous";
   resolveKey: string;
+  preview?: EncounterChoicePreview;
 }
 
 export interface RareEncounter {
@@ -318,6 +319,28 @@ export interface HubEventChoice {
   id: string;
   labelTh: string;
   descriptionTh: string;
+  resolveKey?: string;
+  preview?: EncounterChoicePreview;
+}
+
+export interface EncounterChoicePreview {
+  benefitTh?: string;
+  riskTh?: string;
+  costTh?: string;
+  chanceTh?: string;
+  extraTh?: string;
+}
+
+export interface EncounterChoiceResult {
+  titleTh: string;
+  messageTh: string;
+  type: "success" | "warning" | "info" | "critical";
+  deltas?: ActionDelta[];
+  detailsTh?: string[];
+  journalEntryTh?: string;
+  memoryCreated?: string;
+  itemGained?: string;
+  intelGained?: boolean;
 }
 
 export interface HubEventDefinition {

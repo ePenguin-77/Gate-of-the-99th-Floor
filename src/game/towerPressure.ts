@@ -1,4 +1,4 @@
-import type { FloorResultLevel, GameState } from "../types/game";
+import type { FloorResultLevel, GameState, ShopActionId } from "../types/game";
 
 export interface TowerPressureEffects {
   successChancePenalty: number;
@@ -18,7 +18,7 @@ export type TowerPressureActivity =
   | "investigate"
   | "revisit";
 
-const clampPressure = (value: number) => Math.max(0, Math.min(20, value));
+const clampPressure = (value: number, max = 20) => Math.max(0, Math.min(max, value));
 
 export function getTowerPressureLevel(towerPressure: number) {
   if (towerPressure >= 13) {
@@ -100,33 +100,92 @@ export function getShopCost(baseCost: number, towerPressure = 0): number {
   return Math.ceil(baseCost * getTowerPressureEffects(towerPressure).shopPriceMultiplier);
 }
 
+export function getShopCostForAction(
+  actionId: ShopActionId,
+  baseCost: number,
+  towerPressure = 0,
+  floorNumber = 1,
+): number {
+  const multiplier = getShopPriceMultiplierForAction(actionId, towerPressure, floorNumber);
+  return Math.ceil(baseCost * multiplier);
+}
+
+export function getShopPriceMultiplierForAction(actionId: ShopActionId, towerPressure = 0, floorNumber = 1): number {
+  const multiplier = getTowerPressureEffects(towerPressure).shopPriceMultiplier;
+  if (!isEssentialShopAction(actionId)) return multiplier;
+  const cap = floorNumber <= 3 ? 1.15 : floorNumber <= 5 ? 1.25 : floorNumber <= 10 ? 1.35 : 1.5;
+  return Math.min(multiplier, cap);
+}
+
+export function isEssentialShopAction(actionId: ShopActionId): boolean {
+  return actionId === "buy-food" || actionId === "buy-bandage" || actionId === "buy-medicine" || actionId === "inn-rest";
+}
+
+export function getCurrentTowerFloor(state: GameState): number {
+  return getCurrentFloorNumber(state);
+}
+
 export function applyPressureForActivity(state: GameState, activity: TowerPressureActivity): GameState {
+  const earlyFloor = getCurrentFloorNumber(state);
+  const early = earlyFloor <= 3;
   const gain: Record<TowerPressureActivity, number> = {
-    rest: 1,
+    rest: early ? 0 : 1,
     "inn-rest": 1,
-    train: 2,
-    trainer: 2,
-    gather: 2,
-    investigate: 2,
+    train: early ? 1 : 2,
+    trainer: early ? 1 : 2,
+    gather: early ? 1 : 2,
+    investigate: early ? 1 : 2,
     revisit: 1,
   };
+  const repeated = state.consecutiveActivity?.type === activity ? state.consecutiveActivity.count : 1;
+  const repeatExtra = repeated >= 3 ? 2 : repeated === 2 ? 1 : 0;
   return {
     ...state,
-    towerPressure: clampPressure((state.towerPressure ?? 0) + gain[activity]),
+    towerPressure: clampPressure((state.towerPressure ?? 0) + gain[activity] + repeatExtra, getPressureCap(state)),
+  };
+}
+
+export function isFloorClearSuccess(level: FloorResultLevel): boolean {
+  return level === "greatSuccess" || level === "success" || level === "costlySuccess";
+}
+
+export function onNewFloorCleared(state: GameState): GameState {
+  return {
+    ...state,
+    towerPressure: 0,
   };
 }
 
 export function applyPressureForTowerResult(state: GameState, level: FloorResultLevel, floor: number, isRevisit: boolean): GameState {
   if (isRevisit) return applyPressureForActivity(state, "revisit");
 
+  if (isFloorClearSuccess(level)) {
+    return onNewFloorCleared(state);
+  }
+
   let change = 0;
-  if (level === "greatSuccess") change = floor >= 20 ? -8 : floor === 10 ? -6 : floor >= 11 ? -4 : -4;
-  else if (level === "success" || level === "costlySuccess") change = floor === 10 || floor >= 20 ? -6 : floor >= 11 ? -3 : -3;
-  else if (level === "criticalFailure") change = floor >= 20 ? 5 : floor >= 16 ? 4 : 3;
+  if (level === "criticalFailure") change = floor >= 20 ? 5 : floor >= 16 ? 4 : 3;
   else change = floor >= 20 ? 4 : floor >= 16 ? 3 : 2;
 
   return {
     ...state,
-    towerPressure: clampPressure(floor === 10 && change < 0 ? 0 : (state.towerPressure ?? 0) + change),
+    towerPressure: clampPressure((state.towerPressure ?? 0) + change, getPressureCap(state)),
   };
+}
+
+export function clampTowerPressureForState(state: GameState): number {
+  return clampPressure(state.towerPressure ?? 0, getPressureCap(state));
+}
+
+function getPressureCap(state: GameState) {
+  const floor = getCurrentFloorNumber(state);
+  if (floor <= 3) return 8;
+  if (floor <= 5) return 12;
+  return 20;
+}
+
+function getCurrentFloorNumber(state: GameState) {
+  const character = state.character;
+  if (!character) return 1;
+  return Math.min(20, character.maxFloorCleared + 1);
 }

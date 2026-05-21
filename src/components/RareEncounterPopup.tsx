@@ -1,4 +1,5 @@
 import { Panel } from "./Panel";
+import { EncounterChoiceCard } from "./ui/EncounterChoiceCard";
 import type { RareEncounter, RareEncounterRarity } from "../types/game";
 
 interface RareEncounterPopupProps {
@@ -10,22 +11,6 @@ const rarityLabels: Record<RareEncounterRarity, string> = {
   rare: "หายาก",
   veryRare: "หายากมาก",
   mythic: "แทบเป็นไปไม่ได้",
-};
-
-const outcomeStyles: Record<string, string> = {
-  safe: "border-stone-300/20 bg-stone-200/5 text-stone-300",
-  reward: "border-emerald-300/30 bg-emerald-300/10 text-emerald-100",
-  risk: "border-amber-300/30 bg-amber-300/10 text-amber-100",
-  mixed: "border-sky-300/30 bg-sky-300/10 text-sky-100",
-  dangerous: "border-red-300/30 bg-red-400/10 text-red-100",
-};
-
-const outcomeLabels: Record<string, string> = {
-  safe: "ปลอดภัยกว่า",
-  reward: "อาจได้ประโยชน์",
-  risk: "มีความเสี่ยง",
-  mixed: "ผลลัพธ์ไม่แน่นอน",
-  dangerous: "อันตราย",
 };
 
 export function RareEncounterPopup({ encounter, onChoose }: RareEncounterPopupProps) {
@@ -50,28 +35,20 @@ export function RareEncounterPopup({ encounter, onChoose }: RareEncounterPopupPr
 
         <div className="mt-6 grid gap-3">
           {encounter.choices.map((choice) => (
-            <button
+            <EncounterChoiceCard
               key={choice.id}
-              type="button"
-              onClick={() => onChoose(choice.id)}
-              className="group border border-white/10 bg-black/25 p-4 text-left transition hover:border-amber-300/50 hover:bg-amber-300/10 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-serif text-xl text-stone-50">{choice.labelTh}</p>
-                  <p className="mt-1 text-sm leading-6 text-stone-400">{choice.descriptionTh}</p>
-                </div>
-                <span className={`rounded-full border px-2.5 py-1 text-xs ${outcomeStyles[choice.outcomeType]}`}>
-                  {outcomeLabels[choice.outcomeType]}
-                </span>
-              </div>
-              {choice.riskTh ? <p className="mt-3 text-xs leading-5 text-amber-100/80">ความเสี่ยง: {choice.riskTh}</p> : null}
-            </button>
+              labelTh={choice.labelTh}
+              descriptionTh={choice.descriptionTh}
+              preview={choice.preview}
+              riskTh={choice.riskTh}
+              outcomeType={choice.outcomeType}
+              onChoose={() => onChoose(choice.id)}
+            />
           ))}
         </div>
 
         <div className="mt-6 border-t border-white/10 pt-4 text-sm leading-6 text-stone-500">
-          เหตุการณ์แบบนี้ไม่ได้เกิดขึ้นบ่อย หอคอยไม่เผยด้านผิดปกติให้ทุกคนเห็น
+          ผลลัพธ์จริงยังขึ้นอยู่กับค่าสถานะ Trait ความทรงจำ และความกดดันของหอคอย
         </div>
       </Panel>
     </div>

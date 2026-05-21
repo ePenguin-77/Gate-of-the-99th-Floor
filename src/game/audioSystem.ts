@@ -40,6 +40,7 @@ const audioAssetUrls = import.meta.glob("../assets/audio/**/*.{mp3,ogg,wav,webm}
 let audioContext: AudioContext | undefined;
 let currentMusic: LoopHandle | undefined;
 let currentAmbience: LoopHandle | undefined;
+let audioUnlocked = false;
 const elementCache = new Map<string, HTMLAudioElement>();
 const warnedMissing = new Set<string>();
 const debugLogOnceKeys = new Set<string>();
@@ -84,6 +85,13 @@ export function setVolume(category: AudioCategory, value: number): AudioSettings
   return saveAudioSettings({ [key]: clampVolume(value) } as Partial<AudioSettings>);
 }
 
+export function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  getAudioContext()?.resume().catch(() => undefined);
+  if (import.meta.env.DEV) console.log("Audio unlocked");
+}
+
 export function playUiSound(soundId: UiSoundId) {
   playRegisteredSound(soundId);
 }
@@ -125,17 +133,21 @@ export function playDivineActionSound(actionId: string) {
 function normalizeAudioSettings(settings: Partial<AudioSettings>): AudioSettings {
   return {
     enabled: settings.enabled ?? defaultAudioSettings.enabled,
-    masterVolume: clampVolume(settings.masterVolume ?? defaultAudioSettings.masterVolume),
-    uiVolume: clampVolume(settings.uiVolume ?? defaultAudioSettings.uiVolume),
-    sfxVolume: clampVolume(settings.sfxVolume ?? defaultAudioSettings.sfxVolume),
-    ambienceVolume: clampVolume(settings.ambienceVolume ?? defaultAudioSettings.ambienceVolume),
-    musicVolume: clampVolume(settings.musicVolume ?? defaultAudioSettings.musicVolume),
+    masterVolume: normalizeVolume(settings.masterVolume, defaultAudioSettings.masterVolume),
+    uiVolume: normalizeVolume(settings.uiVolume, defaultAudioSettings.uiVolume),
+    sfxVolume: normalizeVolume(settings.sfxVolume, defaultAudioSettings.sfxVolume),
+    ambienceVolume: normalizeVolume(settings.ambienceVolume, defaultAudioSettings.ambienceVolume),
+    musicVolume: normalizeVolume(settings.musicVolume, defaultAudioSettings.musicVolume),
   };
 }
 
 function clampVolume(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.min(1, Math.max(0, value));
+}
+
+function normalizeVolume(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? clampVolume(value) : fallback;
 }
 
 function getCategoryVolume(category: PlayableAudioCategory, multiplier = 1, settings = getAudioSettings()) {

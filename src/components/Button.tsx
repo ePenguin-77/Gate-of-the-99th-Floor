@@ -13,12 +13,13 @@ const variants = {
 };
 
 export function Button({ children, variant = "secondary", className = "", ...props }: ButtonProps) {
-  const audioProps = props as ButtonHTMLAttributes<HTMLButtonElement> & { "data-audio-id"?: string };
+  const audioProps = props as ButtonHTMLAttributes<HTMLButtonElement> & { "data-audio-hover"?: string; "data-audio-id"?: string };
   const defaultAudioId = variant === "primary" ? "ui_confirm" : variant === "danger" ? "ui_warning" : variant === "ghost" ? "ui_back" : "ui_click";
   return (
     <button
       className={`inline-flex min-h-11 items-center justify-center gap-2 whitespace-normal border px-5 py-2.5 text-center text-sm font-semibold leading-6 tracking-wide transition disabled:cursor-not-allowed disabled:opacity-45 ${variants[variant]} ${className}`}
       data-audio-id={audioProps["data-audio-id"] ?? defaultAudioId}
+      data-audio-hover={audioProps["data-audio-hover"] ?? (variant === "primary" ? "true" : undefined)}
       {...props}
     >
       {children}

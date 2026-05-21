@@ -42,8 +42,9 @@ export function investigateNextFloor(gameState: GameState): InvestigationResult 
   let narrative = "";
   let journalText = "";
 
-  character.survival.hunger = clamp(character.survival.hunger + 8);
-  character.survival.fatigue = clamp(character.survival.fatigue + 10);
+  const earlyGame = character.maxFloorCleared < 3 || character.currentFloor <= 3;
+  character.survival.hunger = clamp(character.survival.hunger + (earlyGame ? 3 : 6));
+  character.survival.fatigue = clamp(character.survival.fatigue + (earlyGame ? 4 : 8));
 
   if (outcome === "trusted") {
     const cost = Math.min(character.gold, randomRange(4, 8));

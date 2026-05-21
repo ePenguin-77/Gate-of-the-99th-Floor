@@ -1,6 +1,6 @@
 import { statLabels } from "./labels";
 import { getNpcServiceCostMultiplier } from "./npcSystem";
-import { getShopCost } from "./towerPressure";
+import { getCurrentTowerFloor, getShopCostForAction } from "./towerPressure";
 import { addItem } from "./inventorySystem";
 import type { Character, GameState, ShopActionId, ShopItem } from "../types/game";
 
@@ -8,27 +8,42 @@ const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max,
 const statKeys = ["strength", "agility", "endurance", "focus", "willpower", "instinct"] as const;
 
 export const shopItems: ShopItem[] = [
-  { id: "buy-food", label: "ซื้ออาหาร", cost: 10, description: "ซื้อเสบียงหนึ่งส่วนสำหรับประทังชีวิต" },
-  { id: "buy-bandage", label: "ซื้อผ้าพันแผล", cost: 18, description: "ลดอาการบาดเจ็บเล็กน้อย" },
-  { id: "buy-medicine", label: "ซื้อยา", cost: 22, description: "ลดอาการป่วยเล็กน้อย" },
-  { id: "buy-dry-bread", label: "ซื้อขนมปังแห้ง", cost: 10, description: "เพิ่มไอเทมขนมปังแห้ง ใช้ประทังความหิวได้ทั้งในเมืองและหอคอย" },
-  { id: "buy-rough-bandage", label: "ซื้อผ้าพันแผลหยาบ", cost: 16, description: "เพิ่มไอเทมผ้าพันแผลหยาบ ใช้ลดอาการบาดเจ็บยามฉุกเฉิน" },
-  { id: "buy-bitter-medicine", label: "ซื้อยาขม", cost: 20, description: "เพิ่มไอเทมยาขม ใช้ลดอาการป่วย แม้รสชาติจะทำร้ายใจ" },
-  { id: "buy-old-rope", label: "ซื้อเชือกเก่า", cost: 24, description: "อุปกรณ์สำหรับพกขึ้นหอคอย ลดความเสี่ยงจากกับดัก สะพาน หรือหลุม" },
-  { id: "buy-cracked-lantern", label: "ซื้อตะเกียงร้าว", cost: 28, description: "อุปกรณ์สำหรับชั้นมืด เพิ่มโอกาสรอดจากความกลัวและเงา" },
-  { id: "inn-rest", label: "พักโรงเตี๊ยม", cost: 16, description: "ฟื้นความเหนื่อยล้าได้มากกว่าการพักธรรมดา แต่ต้องใช้ทอง" },
-  { id: "trainer", label: "ฝึกกับครูฝึก", cost: 22, description: "เพิ่มค่าสถานะอย่างมั่นคง แต่ใช้ทองและแรงกาย" },
-  { id: "prepare-gear", label: "เตรียมอุปกรณ์ขึ้นหอคอย", cost: 28, description: "ลดความเสี่ยงในการท้าทายชั้นถัดไปหนึ่งครั้ง" },
+  { id: "buy-food", label: "ซื้ออาหาร", cost: 5, description: "ซื้อเสบียงหนึ่งส่วนสำหรับประทังชีวิต" },
+  { id: "buy-bandage", label: "ซื้อผ้าพันแผล", cost: 12, description: "ลดอาการบาดเจ็บเล็กน้อย" },
+  { id: "buy-medicine", label: "ซื้อยา", cost: 14, description: "ลดอาการป่วยเล็กน้อย" },
+  { id: "buy-dry-bread", label: "ซื้อขนมปังแห้ง", cost: 8, description: "เพิ่มไอเทมขนมปังแห้ง ใช้ประทังความหิวได้ทั้งในเมืองและหอคอย" },
+  { id: "buy-rough-bandage", label: "ซื้อผ้าพันแผลหยาบ", cost: 12, description: "เพิ่มไอเทมผ้าพันแผลหยาบ ใช้ลดอาการบาดเจ็บยามฉุกเฉิน" },
+  { id: "buy-bitter-medicine", label: "ซื้อยาขม", cost: 14, description: "เพิ่มไอเทมยาขม ใช้ลดอาการป่วย แม้รสชาติจะทำร้ายใจ" },
+  { id: "buy-old-rope", label: "ซื้อเชือกเก่า", cost: 18, description: "อุปกรณ์สำหรับพกขึ้นหอคอย ลดความเสี่ยงจากกับดัก สะพาน หรือหลุม" },
+  { id: "buy-cracked-lantern", label: "ซื้อตะเกียงร้าว", cost: 20, description: "อุปกรณ์สำหรับชั้นมืด เพิ่มโอกาสรอดจากความกลัวและเงา" },
+  { id: "inn-rest", label: "พักโรงเตี๊ยม", cost: 10, description: "ฟื้นความเหนื่อยล้าได้มากกว่าการพักธรรมดา แต่ต้องใช้ทอง" },
+  { id: "trainer", label: "ฝึกกับครูฝึก", cost: 18, description: "เพิ่มค่าสถานะอย่างมั่นคง แต่ใช้ทองและแรงกาย" },
+  { id: "prepare-gear", label: "เตรียมอุปกรณ์ขึ้นหอคอย", cost: 22, description: "ลดความเสี่ยงในการท้าทายชั้นถัดไปหนึ่งครั้ง" },
 ];
+
+export function getShopBaseCost(actionId: ShopActionId, floorNumber = 1): number {
+  if (actionId === "inn-rest") return floorNumber >= 11 ? 18 : floorNumber >= 4 ? 14 : 10;
+  if (actionId === "trainer") return floorNumber >= 11 ? 24 : 18;
+  if (actionId === "prepare-gear") return floorNumber >= 11 ? 30 : 22;
+  return shopItems.find((entry) => entry.id === actionId)?.cost ?? 0;
+}
+
+export function getFinalShopCost(state: GameState, actionId: ShopActionId): number {
+  const item = shopItems.find((entry) => entry.id === actionId);
+  if (!item || !state.character) return 0;
+  const floorNumber = getCurrentTowerFloor(state);
+  const baseCost = getShopBaseCost(actionId, floorNumber);
+  const tinkerCost = state.character.classId === "tinker" && actionId === "prepare-gear" ? Math.ceil(baseCost * 0.85) : baseCost;
+  const serviceKey = actionId === "inn-rest" ? "innRest" : actionId === "buy-bandage" ? "treatInjury" : actionId === "buy-medicine" ? "treatSickness" : actionId === "prepare-gear" ? "prepareEquipment" : "";
+  const npcMultiplier = serviceKey ? getNpcServiceCostMultiplier(state, serviceKey) : 1;
+  return getShopCostForAction(actionId, Math.ceil(tinkerCost * npcMultiplier), state.towerPressure ?? 0, floorNumber);
+}
 
 export function applyShopAction(state: GameState, actionId: ShopActionId): { state: GameState; activityName: string; narrative: string; ok: boolean } {
   if (!state.character) return { state, activityName: "ตลาดและบริการ", narrative: "ไม่มีผู้หลงทางให้ดูแล", ok: false };
   const item = shopItems.find((entry) => entry.id === actionId);
   if (!item) return { state, activityName: "ตลาดและบริการ", narrative: "ไม่พบการบริการนี้", ok: false };
-  const baseCost = state.character.classId === "tinker" && actionId === "prepare-gear" ? Math.ceil(item.cost * 0.85) : item.cost;
-  const serviceKey = actionId === "inn-rest" ? "innRest" : actionId === "buy-bandage" ? "treatInjury" : actionId === "buy-medicine" ? "treatSickness" : actionId === "prepare-gear" ? "prepareEquipment" : "";
-  const npcMultiplier = serviceKey ? getNpcServiceCostMultiplier(state, serviceKey) : 1;
-  const finalCost = getShopCost(Math.ceil(baseCost * npcMultiplier), state.towerPressure ?? 0);
+  const finalCost = getFinalShopCost(state, actionId);
   if (state.character.gold < finalCost) {
     return { state, activityName: item.label, narrative: "ทองไม่พอสำหรับการกระทำนี้", ok: false };
   }
@@ -73,11 +88,11 @@ export function applyShopAction(state: GameState, actionId: ShopActionId): { sta
     narrative = `${character.name} กลืนยาขมลงไป สีหน้าของเขาดีขึ้นเล็กน้อยแม้รสชาติจะเหมือนคำเตือน`;
   }
   if (actionId === "inn-rest") {
-    const eatsFood = character.food > 0;
-    character.survival.fatigue = clamp(character.survival.fatigue - 45);
+    character.survival.fatigue = clamp(character.survival.fatigue - 55);
     character.survival.morale = clamp(character.survival.morale + 8);
-    character.survival.hunger = clamp(character.survival.hunger + 6 - (eatsFood ? 18 : 0));
-    if (eatsFood) character.food -= 1;
+    character.survival.hunger = clamp(character.survival.hunger - 12);
+    character.survival.injury = clamp(character.survival.injury - 3);
+    character.survival.sickness = clamp(character.survival.sickness - 3);
     narrative = `${character.name} พักในโรงเตี๊ยมที่ยังมีหลังคาและไฟอุ่น ร่างกายได้ลืมความหนาวของหอคอยไปชั่วคืน`;
   }
   if (actionId === "trainer") {

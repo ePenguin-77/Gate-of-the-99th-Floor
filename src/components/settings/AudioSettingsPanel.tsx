@@ -99,11 +99,17 @@ export function AudioSettingsPanel() {
           </button>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <AudioTestButton label="ทดสอบเสียงกด" onClick={() => playUiSound("ui_click")} />
+          <AudioTestButton label="ทดสอบเสียงคลิก" onClick={() => playUiSound("ui_click")} />
           <AudioTestButton label="ทดสอบเสียงยืนยัน" onClick={() => playUiSound("ui_confirm")} />
+          <AudioTestButton label="ทดสอบเสียงเตือน" onClick={() => playUiSound("ui_warning")} />
           <AudioTestButton label="ทดสอบเสียงสำเร็จ" onClick={() => playSfx("sfx_success")} />
           <AudioTestButton label="ทดสอบเสียงล้มเหลว" onClick={() => playSfx("sfx_failure")} />
+          <AudioTestButton label="ทดสอบเสียงวิกฤต" onClick={() => playSfx("sfx_critical")} />
           <AudioTestButton label="ทดสอบเสียงเหตุการณ์ผิดปกติ" onClick={() => playSfx("sfx_rare_encounter")} />
+          <AudioTestButton label="ทดสอบเสียงพรแห่งเทพ" onClick={() => playSfx("sfx_blessing")} />
+          <AudioTestButton label="ทดสอบเสียงลางบอกเหตุ" onClick={() => playSfx("sfx_omen")} />
+          <AudioTestButton label="ทดสอบเสียงกระซิบ" onClick={() => playSfx("sfx_whisper")} />
+          <AudioTestButton label="ทดสอบเสียงความเงียบ" onClick={() => playSfx("sfx_silence")} />
         </div>
       </div>
     </section>

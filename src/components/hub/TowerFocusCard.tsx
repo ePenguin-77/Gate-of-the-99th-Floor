@@ -2,7 +2,9 @@ import { DoorOpen, PackagePlus, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "../Button";
 import { Panel } from "../Panel";
+import { RecommendationPanel } from "./RecommendationPanel";
 import { getUsefulEquippedItemHintsForCharacter } from "../../game/inventorySystem";
+import type { HubRecommendation, HubRecommendationActionType } from "../../game/recommendationSystem";
 import { getTowerPressureEffects } from "../../game/towerPressure";
 import type { Character, FloorDefinition, FloorIntel } from "../../types/game";
 
@@ -26,6 +28,8 @@ export interface TowerFocusCardProps {
   onPrepareGear: () => void;
   onRevisit: () => void;
   showPreparationActions?: boolean;
+  recommendations?: HubRecommendation[];
+  onRecommendationAction?: (actionType: HubRecommendationActionType) => void;
 }
 
 export function TowerFocusCard({
@@ -41,12 +45,15 @@ export function TowerFocusCard({
   onPrepareGear,
   onRevisit,
   showPreparationActions = true,
+  recommendations = [],
+  onRecommendationAction,
 }: TowerFocusCardProps) {
   const isDanger = (estimate?.chance ?? 100) < 35;
   const contextTags = floor ? [floor.challengeType, ...(floor.tags ?? []), `floor-${floor.floor}`] : [];
   const usefulItems = floor ? getUsefulEquippedItemHintsForCharacter(character, contextTags).slice(0, 3) : [];
   const matchingIntel = floorIntel && floor && (floorIntel.floorNumber === floor.floor || floorIntel.expiresAfterNextTower) ? floorIntel : undefined;
-  const challengePreview = "เสี่ยงตามชั้น / ความหิว +16 / ความเหนื่อยล้า +24";
+  const keyReasons = getActionableReasons(character, floor, estimate, matchingIntel, usefulItems.length);
+  const challengePreview = getChallengePreview(floor?.floor);
 
   return (
     <Panel className="relative overflow-hidden rounded-[1.35rem] border-ember-300/30 bg-[radial-gradient(circle_at_72%_0%,rgba(217,140,58,0.08),transparent_24%),linear-gradient(135deg,rgba(16,15,19,0.94),rgba(6,6,9,0.92))] p-5 shadow-2xl shadow-amber-950/20 sm:p-6">
@@ -70,12 +77,18 @@ export function TowerFocusCard({
       </div>
 
       <div className="relative mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
-        <InfoList title="เหตุผลสำคัญ" items={estimate?.reasons.length ? estimate.reasons.slice(0, 4) : ["ไม่มีข้อมูลชั้นถัดไป"]} />
+        <InfoList title="เหตุผลสำคัญ" items={keyReasons} />
         <div className="grid gap-4">
           <InfoList title="ข้อมูลที่มีอยู่" items={[getIntelText(matchingIntel)]} muted={!matchingIntel} />
           <InfoList title="ของที่อาจช่วยชั้นนี้" items={usefulItems.length ? usefulItems : ["ไม่มีอุปกรณ์ที่เหมาะกับชั้นนี้"]} muted={!usefulItems.length} />
         </div>
       </div>
+
+      {recommendations.length > 0 ? (
+        <div className="relative mt-5">
+          <RecommendationPanel recommendations={recommendations} onAction={onRecommendationAction} />
+        </div>
+      ) : null}
 
       <div className="relative mt-6 grid gap-2">
         <Button
@@ -137,6 +150,34 @@ function PrepButton({ icon, label, preview, onClick, disabled }: { icon: ReactNo
   );
 }
 
+function getActionableReasons(
+  character: Character,
+  floor?: FloorDefinition,
+  estimate?: TowerEstimateView,
+  intel?: FloorIntel,
+  usefulItemCount = 0,
+) {
+  const reasons: string[] = [];
+  const { hunger, fatigue, injury, sickness } = character.survival;
+
+  if (hunger >= 40) reasons.push("ความหิวเริ่มทำให้สมาธิลดลง");
+  if (fatigue >= 40) reasons.push("ความเหนื่อยล้าอาจทำให้ตอบสนองช้าลง");
+  if (injury >= 30) reasons.push("บาดแผลยังลดความมั่นคงของร่างกาย");
+  if (sickness >= 30) reasons.push("อาการป่วยทำให้เหนื่อยง่ายและฟื้นตัวยากขึ้น");
+  if (!intel) reasons.push("ยังไม่มีข้อมูลเกี่ยวกับชั้นถัดไป");
+  if (floor && usefulItemCount === 0) reasons.push("ไม่มีอุปกรณ์ที่เหมาะกับชั้นนี้");
+  if ((estimate?.chance ?? 100) < 45) reasons.push("หากล้มเหลว อาจบาดเจ็บหรือเสียขวัญ");
+
+  const estimateReasons = estimate?.reasons ?? [];
+  for (const reason of estimateReasons) {
+    if (reasons.length >= 4) break;
+    if (!reasons.includes(reason)) reasons.push(reason);
+  }
+
+  if (reasons.length === 0) return ["สภาพโดยรวมยังพอรับความเสี่ยงได้ แต่หอคอยไม่เคยปล่อยให้ใครผ่านฟรี"];
+  return reasons.slice(0, 4);
+}
+
 function FocusStat({ label, value, detail, tone = "normal", large }: { label: string; value: string; detail: string; tone?: "normal" | "danger"; large?: boolean }) {
   return (
     <div className={`rounded-2xl border p-3 ${tone === "danger" ? "border-orange-300/25 bg-orange-950/15" : "border-white/10 bg-black/25"}`}>
@@ -162,4 +203,10 @@ function getTowerPressureSummary(towerPressure: number) {
   if (towerPressure >= 8) return `กดดัน / โอกาสผ่าน ${effects.successChancePenalty}%`;
   if (towerPressure >= 4) return `เริ่มจับตามอง / โอกาสผ่าน ${effects.successChancePenalty}%`;
   return "สงบนิ่ง แต่ไม่ปลอดภัย";
+}
+
+function getChallengePreview(floorNumber = 1) {
+  if (floorNumber <= 3) return "เสี่ยงตามชั้น / ความหิว +10 / ความเหนื่อยล้า +16";
+  if (floorNumber <= 10) return "เสี่ยงตามชั้น / ความหิว +14 / ความเหนื่อยล้า +22";
+  return "เสี่ยงตามชั้น / ความหิว +16 / ความเหนื่อยล้า +24+";
 }

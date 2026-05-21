@@ -8,9 +8,42 @@ export const hubEvents: HubEventDefinition[] = [
     trigger: "always",
     npcId: "rumor-broker",
     choices: [
-      { id: "pay", labelTh: "จ่ายทองเพื่อฟัง", descriptionTh: "เสียทองเล็กน้อย มีโอกาสได้ข้อมูลชั้นถัดไป" },
-      { id: "refuse", labelTh: "ปฏิเสธ", descriptionTh: "ไม่เสียอะไร แต่ความสัมพันธ์อาจเย็นลง" },
-      { id: "omen", labelTh: "ใช้ลางบอกเหตุเพื่อตรวจสอบ", descriptionTh: "เสี่ยงขวัญกำลังใจลด แต่ลดโอกาสโดนหลอก" },
+      {
+        id: "pay",
+        labelTh: "จ่ายทองเพื่อฟัง",
+        descriptionTh: "เสียทองเล็กน้อย มีโอกาสได้ข้อมูลชั้นถัดไป",
+        resolveKey: "pay",
+        preview: {
+          benefitTh: "อาจได้รับข้อมูลชั้นถัดไป",
+          riskTh: "ข้อมูลอาจไม่ถูกต้อง หรืออาจเป็นเพียงข่าวลือ",
+          costTh: "ใช้ทอง",
+          chanceTh: "ปานกลาง",
+        },
+      },
+      {
+        id: "refuse",
+        labelTh: "ปฏิเสธ",
+        descriptionTh: "ไม่เสียอะไร แต่ความสัมพันธ์อาจเย็นลง",
+        resolveKey: "refuse",
+        preview: {
+          benefitTh: "ไม่เสียทรัพยากร",
+          riskTh: "อาจพลาดโอกาส หรือความสัมพันธ์ลดลง",
+          costTh: "ไม่มี",
+          chanceTh: "ปลอดภัย",
+        },
+      },
+      {
+        id: "omen",
+        labelTh: "ใช้ลางบอกเหตุเพื่อตรวจสอบ",
+        descriptionTh: "เสี่ยงขวัญกำลังใจลด แต่ลดโอกาสโดนหลอก",
+        resolveKey: "omen",
+        preview: {
+          benefitTh: "ลดโอกาสถูกหลอก และอาจแยกข่าวจริงออกจากข่าวปลอม",
+          riskTh: "ขวัญกำลังใจอาจลดลงจากภาพลางร้าย",
+          costTh: "ใช้การแทรกแซงของเทพ",
+          chanceTh: "ดีเมื่อมีความเสี่ยงเรื่องข้อมูลปลอม",
+        },
+      },
     ],
   },
   {

@@ -2,6 +2,7 @@ import type { GameState, PlayerProfile } from "../types/game";
 import { defaultDifficultyMode } from "./difficulty";
 import { normalizeNpcs } from "./npcSystem";
 import { normalizePathAffinity } from "./pathAffinity";
+import { clampTowerPressureForState } from "./towerPressure";
 
 const SAVE_KEY = "gate-of-the-99th-floor.save.v3";
 const PROFILE_KEY = "gate-of-the-99th-floor.profile.v1";
@@ -13,7 +14,7 @@ export const initialPlayerProfile: PlayerProfile = {
 };
 
 export function saveGame(state: GameState): void {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ ...state, towerPressure: clampTowerPressureForState(state) }));
 }
 
 export function loadGame(): GameState | null {
@@ -50,6 +51,7 @@ export function loadGame(): GameState | null {
       parsed.character.inventoryLimit = parsed.character.inventoryLimit ?? 8;
       parsed.character.equippedItems = parsed.character.equippedItems ?? [];
     }
+    parsed.towerPressure = clampTowerPressureForState(parsed);
     return parsed;
   } catch {
     localStorage.removeItem(SAVE_KEY);

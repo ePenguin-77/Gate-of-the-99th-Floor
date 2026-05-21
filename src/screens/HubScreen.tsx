@@ -1,4 +1,4 @@
-import { Backpack, BookOpen, Dumbbell, HeartPulse, Leaf, Map, Moon, PackagePlus, Search, Settings, Shield, User, Users } from "lucide-react";
+import { Backpack, BookOpen, Dumbbell, HeartPulse, Leaf, Map, Moon, PackagePlus, Search, Settings, Shield, Utensils, User, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button";
@@ -16,11 +16,13 @@ import { estimateTowerAttempt } from "../game/eventResolver";
 import { getUsefulEquippedItemHintsForCharacter } from "../game/inventorySystem";
 import { getNpcRelationshipLabel } from "../game/npcSystem";
 import { getDominantPaths } from "../game/pathAffinity";
-import { getTowerPressureEffects } from "../game/towerPressure";
+import { getHubRecommendations, type HubRecommendationActionType } from "../game/recommendationSystem";
+import { getShopCostForAction, getTowerPressureEffects } from "../game/towerPressure";
 import type {
   Character,
   DifficultyMode,
   FloorIntel,
+  GameState,
   JournalEntry,
   LastActionResult as LastActionResultType,
   NPC,
@@ -40,6 +42,7 @@ interface Props {
   preparationBuff?: PreparationBuff;
   floorIntel?: FloorIntel;
   towerPressure: number;
+  totalActionsTaken: number;
   difficultyMode: DifficultyMode;
   divineStrain?: number;
   serviceCostMultipliers?: Partial<Record<ShopActionId, number>>;
@@ -48,9 +51,11 @@ interface Props {
   onRevisit: () => void;
   onTrain: () => void;
   onRest: () => void;
+  onEatFood: () => void;
   onGather: () => void;
   onInvestigate: () => void;
   onShopAction: (actionId: ShopActionId) => void;
+  onUseRecoveryItems: () => void;
   onCharacter: () => void;
   onInventory: () => void;
   onJournal: () => void;
@@ -69,6 +74,7 @@ export function HubScreen({
   preparationBuff,
   floorIntel,
   towerPressure,
+  totalActionsTaken,
   difficultyMode,
   divineStrain = 0,
   serviceCostMultipliers,
@@ -77,9 +83,11 @@ export function HubScreen({
   onRevisit,
   onTrain,
   onRest,
+  onEatFood,
   onGather,
   onInvestigate,
   onShopAction,
+  onUseRecoveryItems,
   onCharacter,
   onInventory,
   onJournal,
@@ -102,6 +110,58 @@ export function HubScreen({
     return getUsefulEquippedItemHintsForCharacter(character, [nextFloor.challengeType, ...(nextFloor.tags ?? []), `floor-${nextFloor.floor}`]);
   }, [character, nextFloor]);
   const riskAdvice = getRiskAdvice(character, estimate?.chance, floorIntel, usefulItems.length);
+  const recommendations = useMemo(() => {
+    const recommendationState: GameState = {
+      character,
+      journal,
+      npcs,
+      hubEventsSeen: [],
+      day: latestEntry?.day ?? 1,
+      difficultyMode,
+      towerPressure,
+      rareEncounterCooldown: 0,
+      rareEncountersSeen: [],
+      totalActionsTaken,
+      lastActionResult,
+      preparationBuff,
+      floorIntel,
+    };
+
+    return getHubRecommendations(recommendationState, {
+      estimatedChance: estimate?.chance,
+      floorNumber: nextFloorNumber,
+      usefulItemCount: usefulItems.length,
+      canPrepareGear: character.gold >= getShopCostForAction("prepare-gear", character.maxFloorCleared >= 10 ? 30 : 22, towerPressure, nextFloorNumber),
+    });
+  }, [
+    character,
+    difficultyMode,
+    estimate?.chance,
+    floorIntel,
+    journal,
+    latestEntry?.day,
+    lastActionResult,
+    nextFloorNumber,
+    npcs,
+    preparationBuff,
+    totalActionsTaken,
+    towerPressure,
+    usefulItems.length,
+  ]);
+
+  function handleRecommendationAction(actionType: HubRecommendationActionType) {
+    if (actionType === "challenge") onChallenge();
+    if (actionType === "investigate") onInvestigate();
+    if (actionType === "rest") onRest();
+    if (actionType === "innRest") onShopAction("inn-rest");
+    if (actionType === "eatFood") onEatFood();
+    if (actionType === "gather") onGather();
+    if (actionType === "prepareGear") onShopAction("prepare-gear");
+    if (actionType === "buyFood") onShopAction("buy-food");
+    if (actionType === "treatInjury") onShopAction("buy-bandage");
+    if (actionType === "treatSickness") onShopAction("buy-medicine");
+    if (actionType === "inventory") onInventory();
+  }
 
   return (
     <main className="hub-screen min-h-screen overflow-x-hidden bg-transparent pb-24 text-stone-100 md:pb-8">
@@ -152,6 +212,8 @@ export function HubScreen({
           canChallenge={canChallenge}
           prototypeCleared={prototypeCleared}
           floorIntel={floorIntel}
+          recommendations={recommendations}
+          onRecommendationAction={handleRecommendationAction}
           onChallenge={onChallenge}
           onInvestigate={onInvestigate}
           onPrepareGear={() => onShopAction("prepare-gear")}
@@ -177,7 +239,7 @@ export function HubScreen({
             <PrepareTab character={character} floorIntel={floorIntel} usefulItems={usefulItems} onInvestigate={onInvestigate} onRevisit={onRevisit} onInventory={onInventory} onPrepareGear={() => onShopAction("prepare-gear")} />
           ) : null}
           {activeTab === "recover" ? (
-            <RecoverTab character={character} onRest={onRest} onGather={onGather} onInventory={onInventory} onShopAction={onShopAction} />
+            <RecoverTab character={character} onRest={onRest} onEatFood={onEatFood} onGather={onGather} onUseRecoveryItems={onUseRecoveryItems} onShopAction={onShopAction} />
           ) : null}
           {activeTab === "develop" ? (
             <DevelopTab character={character} canTrain={canTrain} onTrain={onTrain} onTrainer={() => onShopAction("trainer")} />
@@ -281,14 +343,16 @@ function PrepareTab({
 function RecoverTab({
   character,
   onRest,
+  onEatFood,
   onGather,
-  onInventory,
+  onUseRecoveryItems,
   onShopAction,
 }: {
   character: Character;
   onRest: () => void;
+  onEatFood: () => void;
   onGather: () => void;
-  onInventory: () => void;
+  onUseRecoveryItems: () => void;
   onShopAction: (actionId: ShopActionId) => void;
 }) {
   return (
@@ -312,12 +376,13 @@ function RecoverTab({
       <TabPanel title="การฟื้นตัวและเสบียง">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <HubActionCard icon={<Moon size={17} />} label="พักผ่อน" preview={getActivityPreview("rest")} cost="ฟรี แต่ฟื้นตัวได้น้อยกว่าโรงเตี๊ยม" onClick={onRest} />
+          <HubActionCard icon={<Utensils size={17} />} label="กินอาหาร" preview={getActivityPreview("eat")} cost="ใช้อาหารหนึ่งส่วน แต่ไม่เพิ่มความกดดัน" onClick={onEatFood} />
           <HubActionCard icon={<HeartPulse size={17} />} label="พักโรงเตี๊ยม" preview="ฟื้นความเหนื่อยล้ามาก / ใช้ทอง / หอคอยกดดัน +1" cost="บริการในเมืองพักพิง" onClick={() => onShopAction("inn-rest")} />
           <HubActionCard icon={<Leaf size={17} />} label="ออกหาเสบียง" preview={getActivityPreview("gather")} cost="เสี่ยงบาดเจ็บหรือป่วยเมื่อสภาพแย่" onClick={onGather} />
           <HubActionCard icon={<PackagePlus size={17} />} label="ซื้ออาหาร" preview="อาหาร +1 / ใช้ทอง" onClick={() => onShopAction("buy-food")} />
           <HubActionCard icon={<Shield size={17} />} label="ซื้อผ้าพันแผล" preview="ลดอาการบาดเจ็บเล็กน้อย / ใช้ทอง" onClick={() => onShopAction("buy-bandage")} />
           <HubActionCard icon={<HeartPulse size={17} />} label="ซื้อยา" preview="ลดอาการป่วยเล็กน้อย / ใช้ทอง" onClick={() => onShopAction("buy-medicine")} />
-          <HubActionCard icon={<Backpack size={17} />} label="ใช้ไอเทมฟื้นตัว" preview="เปิดกระเป๋าเพื่อใช้ของที่มีอยู่" cost="เหมาะเมื่อไม่อยากเสียเวลาเพิ่ม" onClick={onInventory} />
+          <HubActionCard icon={<Backpack size={17} />} label="ใช้ไอเทมฟื้นตัว" preview="เปิดกระเป๋าเพื่อใช้ของที่มีอยู่" cost="เหมาะเมื่อไม่อยากเสียเวลาเพิ่ม" onClick={onUseRecoveryItems} />
         </div>
       </TabPanel>
     </div>
@@ -385,7 +450,7 @@ function MarketTab({
           ราคาสูงขึ้นเพราะความกดดันของหอคอย
         </Panel>
       ) : null}
-      <MarketPanel gold={character.gold} towerPressure={towerPressure} classId={character.classId} serviceCostMultipliers={serviceCostMultipliers} onBuy={onShopAction} />
+      <MarketPanel gold={character.gold} towerPressure={towerPressure} currentFloor={Math.min(20, character.maxFloorCleared + 1)} classId={character.classId} serviceCostMultipliers={serviceCostMultipliers} onBuy={onShopAction} />
     </div>
   );
 }

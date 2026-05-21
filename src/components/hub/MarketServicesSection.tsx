@@ -27,6 +27,7 @@ export function MarketServicesSection({ character, towerPressure, serviceCostMul
         <MarketPanel
           gold={character.gold}
           towerPressure={towerPressure}
+          currentFloor={Math.min(20, character.maxFloorCleared + 1)}
           classId={character.classId}
           serviceCostMultipliers={serviceCostMultipliers}
           onBuy={onShopAction}
