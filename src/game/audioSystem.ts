@@ -7,7 +7,10 @@ export interface AudioSettings {
   sfxVolume: number;
   ambienceVolume: number;
   musicVolume: number;
+  backgroundAudioMode: BackgroundAudioMode;
 }
+
+export type BackgroundAudioMode = "pause" | "duck" | "continue";
 
 interface LoopHandle {
   id: AudioSoundId;
@@ -21,6 +24,7 @@ interface LoopOptions {
 }
 
 const STORAGE_KEY = "gate99_audio_settings";
+const BACKGROUND_DUCK_MULTIPLIER = 0.15;
 
 export const defaultAudioSettings: AudioSettings = {
   enabled: true,
@@ -29,6 +33,7 @@ export const defaultAudioSettings: AudioSettings = {
   sfxVolume: 0.75,
   ambienceVolume: 0.45,
   musicVolume: 0.35,
+  backgroundAudioMode: "pause",
 };
 
 const audioAssetUrls = import.meta.glob("../assets/audio/**/*.{mp3,ogg,wav,webm}", {
@@ -41,6 +46,10 @@ let audioContext: AudioContext | undefined;
 let currentMusic: LoopHandle | undefined;
 let currentAmbience: LoopHandle | undefined;
 let audioUnlocked = false;
+let audioFocusListenersInstalled = false;
+let appAudioFocused = true;
+let pageVisible = true;
+let windowFocused = true;
 const elementCache = new Map<string, HTMLAudioElement>();
 const warnedMissing = new Set<string>();
 const debugLogOnceKeys = new Set<string>();
@@ -85,9 +94,46 @@ export function setVolume(category: AudioCategory, value: number): AudioSettings
   return saveAudioSettings({ [key]: clampVolume(value) } as Partial<AudioSettings>);
 }
 
+export function setBackgroundAudioMode(mode: BackgroundAudioMode): AudioSettings {
+  return saveAudioSettings({ backgroundAudioMode: normalizeBackgroundAudioMode(mode) });
+}
+
+export function initializeAudioFocusHandling() {
+  if (audioFocusListenersInstalled || typeof window === "undefined" || typeof document === "undefined") return;
+  audioFocusListenersInstalled = true;
+  pageVisible = !document.hidden;
+  windowFocused = typeof document.hasFocus === "function" ? document.hasFocus() : true;
+  appAudioFocused = pageVisible && windowFocused;
+
+  const updateFromVisibility = () => {
+    pageVisible = !document.hidden;
+    updateAudioFocusState();
+  };
+  const handleBlur = () => {
+    windowFocused = false;
+    updateAudioFocusState();
+  };
+  const handleFocus = () => {
+    windowFocused = true;
+    pageVisible = !document.hidden;
+    updateAudioFocusState();
+  };
+
+  document.addEventListener("visibilitychange", updateFromVisibility);
+  window.addEventListener("blur", handleBlur);
+  window.addEventListener("focus", handleFocus);
+  window.addEventListener("pagehide", handleBlur);
+  window.addEventListener("pageshow", handleFocus);
+}
+
 export function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
+  if (typeof document !== "undefined" && !document.hidden) {
+    pageVisible = true;
+    windowFocused = true;
+    updateAudioFocusState();
+  }
   getAudioContext()?.resume().catch(() => undefined);
   if (import.meta.env.DEV) console.log("Audio unlocked");
 }
@@ -138,7 +184,12 @@ function normalizeAudioSettings(settings: Partial<AudioSettings>): AudioSettings
     sfxVolume: normalizeVolume(settings.sfxVolume, defaultAudioSettings.sfxVolume),
     ambienceVolume: normalizeVolume(settings.ambienceVolume, defaultAudioSettings.ambienceVolume),
     musicVolume: normalizeVolume(settings.musicVolume, defaultAudioSettings.musicVolume),
+    backgroundAudioMode: normalizeBackgroundAudioMode(settings.backgroundAudioMode),
   };
+}
+
+function normalizeBackgroundAudioMode(value: unknown): BackgroundAudioMode {
+  return value === "duck" || value === "continue" || value === "pause" ? value : defaultAudioSettings.backgroundAudioMode;
 }
 
 function clampVolume(value: number) {
@@ -157,6 +208,12 @@ function getCategoryVolume(category: PlayableAudioCategory, multiplier = 1, sett
   return settings.masterVolume * categoryVolume * multiplier;
 }
 
+function getLoopVolume(category: PlayableAudioCategory, multiplier = 1, settings = getAudioSettings()) {
+  const volume = getCategoryVolume(category, multiplier, settings);
+  if (!appAudioFocused && settings.backgroundAudioMode === "duck") return volume * BACKGROUND_DUCK_MULTIPLIER;
+  return volume;
+}
+
 function playRegisteredSound(soundId: AudioSoundId) {
   const entry = audioRegistry[soundId];
   if (!entry) {
@@ -164,6 +221,10 @@ function playRegisteredSound(soundId: AudioSoundId) {
     return;
   }
   const settings = getAudioSettings();
+  if (!appAudioFocused && settings.backgroundAudioMode !== "continue") {
+    logAudioDevOnce(`background-sfx-${soundId}`, `Sound skipped while app is not focused: ${soundId}`);
+    return;
+  }
   const volume = getCategoryVolume(entry.category, entry.volumeMultiplier, settings);
   if (volume <= 0) {
     logAudioDevOnce(`muted-${soundId}`, `Sound skipped because audio is disabled or volume is zero: ${soundId}`);
@@ -198,7 +259,11 @@ function playLoop(soundId: AmbienceSoundId | MusicSoundId, current: LoopHandle |
   stopLoop(current);
 
   const settings = getAudioSettings();
-  const volume = getCategoryVolume(entry.category, entry.volumeMultiplier, settings);
+  if (!appAudioFocused && settings.backgroundAudioMode === "pause") {
+    logAudioDev(`Loop delayed while app is not focused: ${soundId}`);
+    return { id: soundId };
+  }
+  const volume = getLoopVolume(entry.category, entry.volumeMultiplier, settings);
   if (volume <= 0) return { id: soundId };
 
   const sourceUrl = resolveAudioUrl(entry.path);
@@ -225,15 +290,19 @@ function stopLoop(handle?: LoopHandle) {
 }
 
 function updateLoopVolumes(settings = getAudioSettings()) {
-  if (currentMusic && !currentMusic.element) currentMusic = restartStoredLoop(currentMusic, settings) ?? currentMusic;
-  if (currentAmbience && !currentAmbience.element) currentAmbience = restartStoredLoop(currentAmbience, settings) ?? currentAmbience;
+  const shouldPauseForBackground = !appAudioFocused && settings.backgroundAudioMode === "pause";
+  if (currentMusic && !currentMusic.element && !shouldPauseForBackground) currentMusic = restartStoredLoop(currentMusic, settings) ?? currentMusic;
+  if (currentAmbience && !currentAmbience.element && !shouldPauseForBackground) currentAmbience = restartStoredLoop(currentAmbience, settings) ?? currentAmbience;
 
   for (const handle of [currentMusic, currentAmbience]) {
     if (!handle?.element) continue;
     const entry = audioRegistry[handle.id];
     if (!entry) continue;
-    handle.element.volume = getCategoryVolume(entry.category, entry.volumeMultiplier, settings);
-    if (!settings.enabled) handle.element.pause();
+    handle.element.volume = getLoopVolume(entry.category, entry.volumeMultiplier, settings);
+    if (!settings.enabled || shouldPauseForBackground) {
+      if (shouldPauseForBackground && !handle.element.paused) logAudioDev(`Loop paused due to background: ${handle.id}`);
+      handle.element.pause();
+    }
     else if (handle.element.paused) handle.element.play().catch(() => undefined);
   }
 }
@@ -241,7 +310,8 @@ function updateLoopVolumes(settings = getAudioSettings()) {
 function restartStoredLoop(handle: LoopHandle, settings: AudioSettings): LoopHandle | undefined {
   const entry = audioRegistry[handle.id];
   if (!entry) return handle;
-  const volume = getCategoryVolume(entry.category, entry.volumeMultiplier, settings);
+  if (!appAudioFocused && settings.backgroundAudioMode === "pause") return handle;
+  const volume = getLoopVolume(entry.category, entry.volumeMultiplier, settings);
   if (volume <= 0) return handle;
   const sourceUrl = resolveAudioUrl(entry.path);
   if (!sourceUrl) {
@@ -255,6 +325,23 @@ function restartStoredLoop(handle: LoopHandle, settings: AudioSettings): LoopHan
   logAudioDev(`Resuming ${handle.id}`);
   element.play().catch((error) => warnAudioPlayFailed(handle.id, error));
   return { id: handle.id, element };
+}
+
+function updateAudioFocusState() {
+  const focused = pageVisible && windowFocused;
+  if (focused === appAudioFocused) return;
+  appAudioFocused = focused;
+  const settings = getAudioSettings();
+  if (appAudioFocused) {
+    logAudioDev("Audio focus restored");
+    if (settings.backgroundAudioMode === "pause") logAudioDev("Music resumed after focus");
+    else if (settings.backgroundAudioMode === "duck") logAudioDev("Audio restored");
+  } else {
+    logAudioDev("Audio focus lost");
+    if (settings.backgroundAudioMode === "pause") logAudioDev("Music paused due to background");
+    else if (settings.backgroundAudioMode === "duck") logAudioDev("Audio ducked");
+  }
+  updateLoopVolumes(settings);
 }
 
 function getAudioElement(sourceUrl: string) {

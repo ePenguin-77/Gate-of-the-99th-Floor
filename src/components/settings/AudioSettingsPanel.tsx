@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
-import { getAudioSettings, playSfx, playUiSound, resetAudioSettings, saveAudioSettings, setVolume, toggleMute, type AudioSettings } from "../../game/audioSystem";
+import { getAudioSettings, playSfx, playUiSound, resetAudioSettings, saveAudioSettings, setBackgroundAudioMode, setVolume, toggleMute, type AudioSettings, type BackgroundAudioMode } from "../../game/audioSystem";
 import type { AudioCategory } from "../../game/audioRegistry";
 
 const sliders: { category: AudioCategory; label: string; key: keyof AudioSettings }[] = [
@@ -9,6 +9,24 @@ const sliders: { category: AudioCategory; label: string; key: keyof AudioSetting
   { category: "sfx", label: "เสียงเหตุการณ์", key: "sfxVolume" },
   { category: "ambience", label: "เสียงบรรยากาศ", key: "ambienceVolume" },
   { category: "music", label: "เพลงประกอบ", key: "musicVolume" },
+];
+
+const backgroundAudioOptions: { mode: BackgroundAudioMode; label: string; description: string }[] = [
+  {
+    mode: "pause",
+    label: "หยุดชั่วคราว",
+    description: "เพลงและเสียงบรรยากาศจะหยุดเมื่อย่อหน้าต่างหรือเปลี่ยนแท็บ",
+  },
+  {
+    mode: "duck",
+    label: "ลดเสียงลง",
+    description: "เพลงและเสียงบรรยากาศจะเบาลงเมื่อเกมไม่ได้อยู่หน้า active",
+  },
+  {
+    mode: "continue",
+    label: "เล่นต่อ",
+    description: "เสียงจะเล่นต่อเหมือนเดิมแม้ไม่ได้โฟกัสเกม",
+  },
 ];
 
 export function AudioSettingsPanel() {
@@ -24,6 +42,11 @@ export function AudioSettingsPanel() {
 
   function handleEnable(enabled: boolean) {
     setSettings(saveAudioSettings({ enabled }));
+  }
+
+  function handleBackgroundAudioMode(mode: BackgroundAudioMode) {
+    setSettings(setBackgroundAudioMode(mode));
+    playUiSound("ui_tab");
   }
 
   function handleResetSettings() {
@@ -81,6 +104,33 @@ export function AudioSettingsPanel() {
             />
           </label>
         ))}
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+        <div>
+          <p className="font-serif text-2xl text-stone-50">พฤติกรรมเสียงเมื่อไม่ได้โฟกัสเกม</p>
+          <p className="mt-1 text-sm leading-6 text-stone-400">ใช้เมื่อลดหน้าต่าง เปลี่ยนแท็บ หรือไปใช้งานแอปอื่น</p>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {backgroundAudioOptions.map((option) => (
+            <label
+              key={option.mode}
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm transition hover:border-ember-300/40 hover:bg-ember-300/10"
+            >
+              <input
+                type="radio"
+                name="background-audio-mode"
+                checked={settings.backgroundAudioMode === option.mode}
+                onChange={() => handleBackgroundAudioMode(option.mode)}
+                className="mt-1 h-4 w-4 accent-amber-400"
+              />
+              <span className="grid gap-1">
+                <span className="font-semibold text-stone-100">{option.label}</span>
+                <span className="leading-6 text-stone-400">{option.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="mt-6 rounded-2xl border border-ember-300/15 bg-ember-950/10 p-4">

@@ -27,7 +27,7 @@ import { adjustNpcRelationship, getDailyNpcLine, getNpcMemorialText, getNpcServi
 import { applyAdvancedClass, applyAdvancedClassObject, getEligibleAdvancedClasses, getFallbackAdvancedClass, getNearAdvancedClasses, type NearAdvancedClass } from "./game/advancedClassSystem";
 import { applyPathChangesFromEvent, formatPathChanges } from "./game/pathAffinity";
 import { equipItem, getUsableItemsForContext, removeItem, unequipItem, useItem } from "./game/inventorySystem";
-import { playAmbience, playDivineActionSound, playMusic, playSfx, playUiSound, stopAllAudio, unlockAudio } from "./game/audioSystem";
+import { initializeAudioFocusHandling, playAmbience, playDivineActionSound, playMusic, playSfx, playUiSound, stopAllAudio, unlockAudio } from "./game/audioSystem";
 import type { UiSoundId } from "./game/audioRegistry";
 
 type PendingAction =
@@ -144,6 +144,7 @@ export default function App() {
 
   useEffect(() => {
     setSaveAvailable(hasSave());
+    initializeAudioFocusHandling();
   }, []);
 
   useEffect(() => {
